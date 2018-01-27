@@ -1,0 +1,10 @@
+{
+	"name": "voxelized3d",
+	"authors": [
+		"russoul"
+	],
+	"description": "3D voxel egnine",
+	"copyright": "Copyright © 2018, russoul",
+	"license": "MIT",
+	"libs": ["GL", "glad", "glfw3"]
+}
