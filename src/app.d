@@ -30,7 +30,16 @@ void processInput(GlfwWindow* win){
 
 void main() @system
 {
-	runVoxelized();
+	//runVoxelized();
+	testStuff();
+}
+
+void testStuff(){
+	auto i = vec!([1,0,0]);
+	auto j = vec!([0,1,0]);
+	auto k = i.cross(j);
+	writeln(k);
+	writeln(i * j);
 }
 
 void runVoxelized(){

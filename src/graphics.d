@@ -64,7 +64,7 @@ struct Program{
         glUniform3f(getUniform(name), float3[0], float3[1], float3[2]);
     }
 
-    void setFloat4x4(string name, bool tranpose, ref const Matrix!(float,4,4) float4x4){
+    void setFloat4x4(string name, bool tranpose, ref const Matrix4!(float) float4x4){
         glUniformMatrix4fv(getUniform(name), 1, tranpose, cast(const(float)*) float4x4.array);
     }
 }
