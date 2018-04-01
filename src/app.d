@@ -1,9 +1,18 @@
 import std.stdio;
 import std.conv;
-import util;
+import std.variant;
+import std.typecons;
+import std.file;
+import std.algorithm;
+import std.array;
+import std.file;
+import std.path;
+import std.container.slist;
 
+import util;
 import graphics;
 import matrix;
+import RenderingEngine;
 
 
 extern(C) void errorCallback(int code, const char* error) {
@@ -30,16 +39,51 @@ void processInput(GlfwWindow* win){
 
 void main() @system
 {
-	//runVoxelized();
 	testStuff();
+	runVoxelized();
+	
 }
 
 void testStuff(){
-	auto i = vec!([1,0,0]);
-	auto j = vec!([0,1,0]);
-	auto k = i.cross(j);
-	writeln(k);
-	writeln(i * j);
+	auto t = none!int;
+	t.visit!(
+		(Some!int i) => writeln(i),
+		(None n) => writeln("none")
+	);
+}
+
+
+
+Program[string] loadShaders(){
+	auto dir = "./assets/shaders/";
+	SList!(string) uniqueNames;
+	std.file.dirEntries(dir, SpanMode.shallow)
+        .filter!(a => a.isFile)
+        .map!(a => stripExtension(a.name))
+	    .each!(delegate (a){
+				if ( !uniqueNames.contains(a) ) 
+					uniqueNames.insertFront(a); 
+		}
+		
+			
+	);
+
+	Program[string] shaders;
+
+	foreach(string shaderName; uniqueNames){
+		string vertSrc = cast(string) read(shaderName ~ ".vert");
+		string fragSrc = cast(string) read(shaderName ~ ".frag");
+		string base = baseName(vertSrc);
+
+		auto prog = createProgramVertFrag(vertSrc, fragSrc);
+
+		shaders[base] = Program(prog);
+		
+	}
+
+
+	return shaders;
+
 }
 
 void runVoxelized(){
@@ -70,6 +114,8 @@ void runVoxelized(){
 
 	glfwSetFramebufferSizeCallback(win, &framebufSzCb);
 	glfwSetInputMode(win, GLFW_STICKY_KEYS, 1);
+
+	loadShaders();
 
 
 	glEnable(GL_DEPTH_TEST);

@@ -5,7 +5,7 @@ import std.traits;
 import util;
 import traits;
 
-struct Matrix(T, size_t N, size_t M){
+struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	T[N * M] array; //stores by row
 
 
