@@ -12,7 +12,7 @@ import util;
 //
 struct Manual{};
 struct OneDraw{};
-alias Renderlifetime = Algebraic!(Manual, OneDraw);
+alias RenderLifetime = Algebraic!(Manual, OneDraw);
 //
 
 
@@ -54,6 +54,11 @@ class VoxelRenderer{
     private uint curId = 0; 
 
 
+    this(Program[string] shaders){
+        this.shaders = shaders;
+    }
+
+
     void draw(const ref WindowInfo winInfo, const ref Camera camera){
         foreach(renderInfo; lifetimeOneDrawRenderers){
             auto shaderName = renderInfo.renderer.shaderName;
@@ -72,33 +77,76 @@ class VoxelRenderer{
                 () => true
             );
 
-            //TODO continue
+
+            if(ok){
+                renderInfo.renderer.construct();
+                renderInfo.renderer.draw();
+                renderInfo.renderer.deconstruct();
+            }
+
+            if(renderInfo.provider.postRenderState.isDefined){
+                renderInfo.provider.postRenderState.getValue()();
+            }
+
+            shader.disable();
+
+
+        }
+
+        foreach(renderInfo; lifetimeManualRenderers){
+            auto shaderName = renderInfo.renderer.shaderName;
+            Program shader = shaders[shaderName];
+
+            shader.enable();
+
+            if(renderInfo.provider.preRenderState.isDefined){
+                renderInfo.provider.preRenderState.getValue()();
+            }
+
+
+
+            auto ok = renderInfo.provider.shaderData.match!(
+                (x) => x(shader, winInfo, camera),
+                () => true
+            );
+
+
+            if(ok){
+                //manual construction and deconstruction
+                renderInfo.renderer.draw();
+                
+            }
+
+            if(renderInfo.provider.postRenderState.isDefined){
+                renderInfo.provider.postRenderState.getValue()();
+            }
+
+            shader.disable();
 
         }
     }
 
-    Option!RenderID push(Renderlifetime life, RenderTransform transform, RenderInfo renderer){
+    Option!RenderID push(RenderLifetime life, RenderTransform transform, RenderInfo renderer){
         
         return shaders.get(renderer.renderer.shaderName).visit!(
             delegate(Some!Program shader){
 
                 auto providerDef = delegate bool(Program shader, const ref WindowInfo win , const ref Camera cam){
-                    shader.setFloat4x4(
-                        "P", false, mat!([
+                    
+                    
+                    auto id = matS!([
                             [1.0f, 0.0f, 0.0f, 0.0f],
                             [0.0f, 1.0f, 0.0f, 0.0f],
                             [0.0f, 0.0f, 1.0f, 0.0f],
                             [0.0f, 0.0f, 0.0f, 1.0f]
-                        ])
+                        ]);
+                    
+                    shader.setFloat4x4(
+                        "P", false, id
                     );
 
                     shader.setFloat4x4(
-                        "V", false, mat!([
-                            [1.0f, 0.0f, 0.0f, 0.0f],
-                            [0.0f, 1.0f, 0.0f, 0.0f],
-                            [0.0f, 0.0f, 1.0f, 0.0f],
-                            [0.0f, 0.0f, 0.0f, 1.0f]
-                        ])
+                        "V", false, id
                     );
 
 

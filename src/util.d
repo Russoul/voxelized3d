@@ -104,23 +104,28 @@ size_t createProgramVertFrag(string vertSrc_, string fragSrc_){
     ulong status = 0;
     ulong max_len = 1024;
     ulong len = 0;
-    char* info;
+    char[] info = new char[max_len];
     glCompileShader(vertId);
     glGetShaderiv(vertId, GL_COMPILE_STATUS, &status);
+    stdout.flush();
     if(status == 0){
-        glGetShaderInfoLog(vertId, max_len, &len, info);
-        auto strInfo = to!string(info);
-        writefln("Failed to compile vertex shader !\n Source:\n-------------------------\n%s\n-------------------------\nError:\n%s", vertSrc_, strInfo);
+        glGetShaderInfoLog(vertId, max_len, &len, info.ptr);
+        writeln(info[len] + 0);
 
+        auto strInfo = newString(info.ptr, len);
+        writefln("Failed to compile vertex shader !\n Source:\n-------------------------\n%s\n-------------------------\nError:\n%s", vertSrc_, strInfo);
+        stdout.flush();
+        panic!void("");
     }
 
     glCompileShader(fragId);
     glGetShaderiv(fragId, GL_COMPILE_STATUS, &status);
     if(status == 0){
-        glGetShaderInfoLog(fragId, max_len, &len, info);
-        auto strInfo = to!string(info);
+        glGetShaderInfoLog(fragId, max_len, &len, info.ptr);
+        auto strInfo = newString(info.ptr, len);
         writefln("Failed to compile fragment shader !\n Source:\n-------------------------\n%s\n-------------------------\nError:\n%s", fragSrc_, strInfo);
-
+        stdout.flush();
+        panic!void("");
     }
 
     glAttachShader(prog, vertId);
@@ -133,4 +138,24 @@ size_t createProgramVertFrag(string vertSrc_, string fragSrc_){
 
     return prog;
 
+}
+
+
+//len includes null symbol
+string newString(const(char *) cstr, size_t len){
+    char[] str = new char[len];
+    for(int i = 0; i < len; ++i){ //TODO memcpy ?
+        str[i] = cstr[i];
+    }
+
+    return str.dup; //better way ?
+}
+
+char[] nullTerminate(string str){
+    return (str ~ '\0').dup;
+}
+
+void println(string str){
+    writeln(str);
+    stdout.flush();
 }

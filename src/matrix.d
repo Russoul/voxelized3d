@@ -29,7 +29,6 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		}
 
 		T opIndex(size_t i) const {
-			static assert(N == 1 || M == 1);
 			return array[i];
 		}
 
@@ -41,8 +40,41 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 				
 			}
 		}
+
+		T x() const{
+			return array[0];
+		}
+	}
+
+	static if(N >= 2 && M == 1 || N == 1 && M >= 2){
+		T y() const{
+			return array[1];
+		}
 	}
 	
+
+	static if(N >= 3 && M == 1 || N == 1 && M >= 3){
+		T z() const{
+			return array[2];
+		}
+	}
+
+	static if(N >= 4 && M == 1 || N == 1 && M >= 4){
+		T w() const{
+			return array[3];
+		}
+	}
+
+	
+	auto opUnary(string op)() if (op == "-"){
+		T[N * M] res;
+
+		for(size_t i = 0; i < N * M; ++i){
+			res[i] = -this[i];
+		}
+
+		return Matrix!(T,N,M)(res);
+	}
 
 	auto opBinary(string op)(Matrix!(T,N,M) other) const{
 		static if(op == "+"){
@@ -79,6 +111,38 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	}
 }
 
+
+
+auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
+	
+    T res = zero!T();
+	
+	for(size_t i = 0; i < N; ++i){
+		res += a.array[i] * b.array[i];
+	}
+
+
+	return res;
+}
+
+
+auto cross(T)(Vector3!T a, Vector3!T b){
+	return Vector3!T(a[1]*b[2] - b[1]*a[2], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - b[0] * a[1]);
+}
+
+
+auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
+	T[N*M] res;
+
+	for(size_t i = 0; i < N; ++i){
+		for(size_t j = 0; j < M; ++j){
+			res[j * N + i] = a[i,j];
+		}
+	}
+
+	return Matrix!(T,N,M)(res);
+}
+
 //column vector
 alias Vector(T,size_t N) = Matrix!(T,N,1);
 alias RowVector(T, size_t M) = Matrix!(T,1,M);
@@ -91,13 +155,15 @@ alias Matrix2(T) = MatrixN!(T,2);
 alias Matrix3(T) = MatrixN!(T,3);
 alias Matrix4(T) = MatrixN!(T,4);
 
-auto vec(alias val)() {
+//calculated statically (at compile time)
+auto vecS(alias val)() {
   alias T = ForeachType!(typeof(val));
   enum N  = val.length;
   return Vector!(T,N)(cast(T[N]) val);
 }
 
-auto mat(alias val)() { //TODO test perfomance ?
+//calculated statically (at compile time)
+auto matS(alias val)() {
 	alias T = typeof(val[0][0]);
 	enum N  = val.length;
 	enum M = val[0].length;

@@ -25,7 +25,9 @@ struct Program{
     size_t id;
 
     int getUniform(string name){
-        return glGetUniformLocation(id, cast(const(char)*) name.dup);
+        char[] nullTerminated = (name ~ '\0').dup;
+
+        return glGetUniformLocation(id, cast(const(char)*) nullTerminated.ptr);
     }
 
     bool isInUse(){
@@ -64,8 +66,11 @@ struct Program{
         glUniform3f(getUniform(name), float3[0], float3[1], float3[2]);
     }
 
-    void setFloat4x4(string name, bool tranpose, Matrix4!(float) float4x4){
-        glUniformMatrix4fv(getUniform(name), 1, tranpose, cast(const(float)*) float4x4.array);
+    void setFloat4x4(string name, bool transpose, const ref Matrix4!(float) float4x4){
+        import std.stdio;
+        import std.conv;
+        //writeln(to!string(getUniform(name)) ~ " " ~ to!string(this) ~ " " ~ name ~ " setFloat4x4");
+        glUniformMatrix4fv(getUniform(name), 1, transpose, cast(const(float)*) float4x4.array.ptr);
     }
 }
 
@@ -87,7 +92,7 @@ extern (C) void glfwSetErrorCallback(void function(int, const char*) callback);
 extern (C) bool glfwWindowShouldClose(GlfwWindow* win);
 extern (C) void glfwSwapBuffers(GlfwWindow* win);
 extern (C) void glfwPollEvents();
-extern (C) size_t glfwGetKey(GlfwWindow* win, size_t key);
+extern (C) size_t glfwGetKey(const (GlfwWindow*) win, int key);
 extern (C) void glfwSetWindowShouldClose(GlfwWindow* win, bool shouldClose);
 extern (C) void glfwSetInputMode(GlfwWindow* win, size_t mode, int value);
 extern (C) void glfwGetWindowSize(GlfwWindow* win, size_t* w, size_t* h);

@@ -6,4 +6,5 @@ __dummy.html
 __test__*__
 *.so
 voxelized3d
-
+.idea/
+voxelized3d.iml

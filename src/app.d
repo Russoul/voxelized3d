@@ -13,6 +13,8 @@ import util;
 import graphics;
 import matrix;
 import RenderingEngine;
+import render;
+import math;
 
 
 extern(C) void errorCallback(int code, const char* error) {
@@ -37,20 +39,23 @@ void processInput(GlfwWindow* win){
 		glfwSetWindowShouldClose(win, true);
 }
 
-void main() @system
-{
-	testStuff();
-	runVoxelized();
-	
+
+void updateWindowInfo(ref WindowInfo win){
+	size_t w;
+	size_t h;
+
+	glfwGetWindowSize(win.handle, &w, &h);
+
+	win.width = w;
+	win.height = h;
 }
 
-void testStuff(){
-	auto t = none!int;
-	t.visit!(
-		(Some!int i) => writeln(i),
-		(None n) => writeln("none")
-	);
+void main() @system
+{
+    println("Running Voxelized3D...");
+	runVoxelized();
 }
+
 
 
 
@@ -73,7 +78,7 @@ Program[string] loadShaders(){
 	foreach(string shaderName; uniqueNames){
 		string vertSrc = cast(string) read(shaderName ~ ".vert");
 		string fragSrc = cast(string) read(shaderName ~ ".frag");
-		string base = baseName(vertSrc);
+		string base = baseName(shaderName);
 
 		auto prog = createProgramVertFrag(vertSrc, fragSrc);
 
@@ -115,14 +120,92 @@ void runVoxelized(){
 	glfwSetFramebufferSizeCallback(win, &framebufSzCb);
 	glfwSetInputMode(win, GLFW_STICKY_KEYS, 1);
 
-	loadShaders();
+	auto shaders = loadShaders();
 
+	auto voxelRenderer = new VoxelRenderer(shaders);
+
+	auto winInfo = WindowInfo(defWidth, defHeight, win);
+	auto camera = Camera(Vector3!float([0.0F, 0.0F, 2.0F]), vecS!([0.0F, 0.0F, -1.0F]), vecS!([0.0F, 1.0F, 0.0F]));
+
+
+	auto rendererLines = new RenderVertFragDef("color", GL_LINES, () => setAttribPtrsColor());
+	auto rendererTrianglesColor = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor());
+
+	auto red = Vector3!(float)([1.0F, 0.0F, 0.0F]);
+	
+	
+	// addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
+	// 	Vector3!float([-0.5, 0, -0]),
+	// 	Vector3!float([0.5, 0, -0]),
+	// 	Vector3!float([0, 1, -0])
+
+	// ), red);
+
+	addTriangleColor(rendererTrianglesColor, Triangle!(float, 3)(
+		Vector3!float([-0.5, 0, -0]),
+		Vector3!float([0.5, 0, -0]),
+		Vector3!float([0, 1, -0])
+
+	), red);
+
+
+
+
+	shaders["lighting"].enable();
+	shaders["lighting"].setFloat3("pointLight.pos", vecS!([0.0F,8.0F,0.0F]));
+	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([1.0, 1.0, 1.0]));
+
+
+	auto shaderDataLines =
+	delegate(Program shader, const ref WindowInfo win, const ref Camera camera){
+		auto aspect = cast(float)win.width / win.height;
+
+		auto idMat = matS!([
+			[1.0F, 0.0F, 0.0F, 0.0F],
+			[0.0F, 1.0F, 0.0F, 0.0F],
+			[0.0F, 0.0F, 1.0F, 0.0F],
+			[0.0F, 0.0F, 0.0F, 1.0F]
+		]);
+
+		auto persp = perspectiveProjection(90.0F, aspect, 0.1F, 16.0F);
+		auto view = viewDir(camera.pos, camera.look, camera.up);
+
+		shader.setFloat4x4("P", false, idMat);
+		shader.setFloat4x4("V", false, idMat);
+
+		//return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
+		return true;
+	};
+
+
+	auto providerLines = RenderDataProvider(none!(void delegate()), none!(void delegate()),
+	 some(shaderDataLines));
+
+
+
+	auto renderInfoLines = RenderInfo(rendererLines, providerLines);
+	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, providerLines);
+
+	//auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines); 
+	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor); 
+
+	//voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.construct();
+	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.construct();
+
+
+
+
+	//TODO frame time (precise timer)
 
 	glEnable(GL_DEPTH_TEST);
 	while(!glfwWindowShouldClose(win)){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
+
+		voxelRenderer.draw(winInfo, camera);
+
+		updateWindowInfo(winInfo);
 		glfwSwapBuffers(win);
 		glfwPollEvents();
 
@@ -131,5 +214,11 @@ void runVoxelized(){
 		checkForGlErrors();
 	}
 
+
+	//voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.deconstruct();
+	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.deconstruct();
+
+
+	glfwTerminate();
 
 }
