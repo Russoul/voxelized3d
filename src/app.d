@@ -132,14 +132,15 @@ void runVoxelized(){
 	auto rendererTrianglesColor = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor());
 
 	auto red = Vector3!(float)([1.0F, 0.0F, 0.0F]);
+	auto green = Vector3!(float)([0.0F, 1.0F, 0.0F]);
 	
 	
-	// addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
-	// 	Vector3!float([-0.5, 0, -0]),
-	// 	Vector3!float([0.5, 0, -0]),
-	// 	Vector3!float([0, 1, -0])
+	 addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
+	 	Vector3!float([-0.3, 0, -0]),
+	 	Vector3!float([0.3, 0, -0]),
+	 	Vector3!float([0, 1, -0])
 
-	// ), red);
+	 ), green);
 
 	addTriangleColor(rendererTrianglesColor, Triangle!(float, 3)(
 		Vector3!float([-0.5, 0, -0]),
@@ -186,12 +187,11 @@ void runVoxelized(){
 	auto renderInfoLines = RenderInfo(rendererLines, providerLines);
 	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, providerLines);
 
-	//auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines); 
+	auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines);
 	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor); 
 
-	//voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.construct();
+	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.construct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.construct();
-
 
 
 
@@ -201,7 +201,6 @@ void runVoxelized(){
 	while(!glfwWindowShouldClose(win)){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-
 
 		voxelRenderer.draw(winInfo, camera);
 
@@ -215,7 +214,7 @@ void runVoxelized(){
 	}
 
 
-	//voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.deconstruct();
+	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.deconstruct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.deconstruct();
 
 

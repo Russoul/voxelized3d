@@ -123,6 +123,7 @@ extern (C) void glBindVertexArray(size_t array);
 extern (C) void glBindBuffer(size_t type, size_t buf);
 extern (C) void glBufferData(size_t target, size_t size, const(void)* data, size_t usage);
 extern (C) void glDrawElements(size_t mode, size_t count, size_t type, size_t indices);
+extern (C) void glDrawArrays(size_t mode, size_t startingVertex, size_t vertexCount);
 extern (C) void glVertexAttribPointer(size_t index, size_t size, size_t type, bool normalized, size_t stride, size_t offset);
 extern (C) void glEnableVertexAttribArray(size_t index);
 extern (C) int glGetUniformLocation(size_t program, const(char)* name);

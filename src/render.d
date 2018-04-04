@@ -19,8 +19,8 @@ class RenderVertFrag{
 }
 
 class RenderVertFragDef : RenderVertFrag{
-    ArrayList!float vertexPool = new ArrayList!float();
-    ArrayList!uint indexPool = new ArrayList!uint(); //uint is 32bit
+    ArrayList!float vertexPool;
+    ArrayList!uint indexPool; //uint is 32bit
     uint vertexCount = 0;
     size_t VBO;
     size_t VAO;
@@ -33,6 +33,9 @@ class RenderVertFragDef : RenderVertFrag{
         this.shaderName = name;
         this.renderMode = mode;
         this.setAttribPtrs = setAttribPtrs;
+
+        vertexPool = new ArrayList!float();
+        indexPool = new ArrayList!uint();
     }
     
     override bool construct(){
@@ -53,15 +56,10 @@ class RenderVertFragDef : RenderVertFrag{
         glBindVertexArray(VAO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-        println(to!string(vertexPool.array));
-        println(to!string(vertexPool.size));
 
-        println(to!string(indexPool.array));
-        println(to!string(indexPool.size));
-
-        glBufferData(GL_ARRAY_BUFFER, vertexPool.size(), cast(const void *) vertexPool.array.ptr, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertexPool.size() * float.sizeof, cast(const void *) vertexPool.array.ptr, GL_STATIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexPool.size(), cast(const void *) indexPool.array.ptr, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexPool.size() * uint.sizeof, cast(const void *) indexPool.array.ptr, GL_STATIC_DRAW);
         setAttribPtrs();
         
 
@@ -108,7 +106,6 @@ enum VERTEX_SIZE_POS_COLOR = 6;
 enum VERTEX_SIZE_POS_COLOR_NORMAL = 9;
 
 void setAttribPtrsColor(){
-    writeln("atrib ptrs");
     glVertexAttribPointer(0,3, GL_FLOAT, false, VERTEX_SIZE_POS_COLOR * 4, 0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1,3,GL_FLOAT, false, VERTEX_SIZE_POS_COLOR * 4, 3 * 4);
