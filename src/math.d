@@ -3,14 +3,16 @@ import traits;
 import matrix;
 import std.math;
 
-double PI = 3.14159265359;
-
 
 struct Triangle(T, size_t N){
     Vector!(T, N) p1;
     Vector!(T, N) p2;
     Vector!(T, N) p3;
 }
+
+
+//about memory layout of matrices in opengl:
+//https://stackoverflow.com/questions/17717600/confusion-between-c-and-opengl-matrix-order-row-major-vs-column-major
 
 //column-major
 Matrix4!(float) perspectiveProjection(float fovy, float aspect, float near, float far){
@@ -38,4 +40,12 @@ Matrix4!(float) viewDir(Vector3!float pos, Vector3!float look, Vector3!float up)
                    xa.y, ya.y, za.y, 0.0F,
                    xa.z, ya.z, za.z, 0.0F,
                    -xa.dot(pos), -ya.dot(pos), -za.dot(pos), 1.0F]).transpose();
+}
+
+
+Matrix4!(float) translation(Vector3!float deltaX){
+    return Matrix4!float([1,0,0,deltaX.x,
+                          0,1,0,deltaX.y,
+                          0,0,1,deltaX.z,
+                          0,0,0,1]);
 }

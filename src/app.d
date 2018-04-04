@@ -8,6 +8,7 @@ import std.array;
 import std.file;
 import std.path;
 import std.container.slist;
+import std.datetime;
 
 import util;
 import graphics;
@@ -15,6 +16,7 @@ import matrix;
 import RenderingEngine;
 import render;
 import math;
+
 
 
 extern(C) void errorCallback(int code, const char* error) {
@@ -120,12 +122,14 @@ void runVoxelized(){
 	glfwSetFramebufferSizeCallback(win, &framebufSzCb);
 	glfwSetInputMode(win, GLFW_STICKY_KEYS, 1);
 
+	glViewport(0,0,defWidth,defHeight);
+
 	auto shaders = loadShaders();
 
 	auto voxelRenderer = new VoxelRenderer(shaders);
 
 	auto winInfo = WindowInfo(defWidth, defHeight, win);
-	auto camera = Camera(Vector3!float([0.0F, 0.0F, 2.0F]), vecS!([0.0F, 0.0F, -1.0F]), vecS!([0.0F, 1.0F, 0.0F]));
+	auto camera = Camera(Vector3!float([0.0F, 0.0F, 0.0F]), vecS!([0.0F, 0.0F, -1.0F]), vecS!([0.0F, 1.0F, 0.0F]));
 
 
 	auto rendererLines = new RenderVertFragDef("color", GL_LINES, () => setAttribPtrsColor());
@@ -136,16 +140,16 @@ void runVoxelized(){
 	
 	
 	 addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
-	 	Vector3!float([-0.3, 0, -0]),
-	 	Vector3!float([0.3, 0, -0]),
-	 	Vector3!float([0, 1, -0])
+	 	Vector3!float([-0.3, 0, -1]),
+	 	Vector3!float([0.3, 0, -1]),
+	 	Vector3!float([0, 1, -1])
 
 	 ), green);
 
 	addTriangleColor(rendererTrianglesColor, Triangle!(float, 3)(
-		Vector3!float([-0.5, 0, -0]),
-		Vector3!float([0.5, 0, -0]),
-		Vector3!float([0, 1, -0])
+		Vector3!float([-0.5, 0, -1]),
+		Vector3!float([0.5, 0, -1]),
+		Vector3!float([0, 1, -1])
 
 	), red);
 
@@ -170,12 +174,13 @@ void runVoxelized(){
 
 		auto persp = perspectiveProjection(90.0F, aspect, 0.1F, 16.0F);
 		auto view = viewDir(camera.pos, camera.look, camera.up);
+		auto tr = translation(Vector3!float([0.5, 0,0]));
 
-		shader.setFloat4x4("P", false, idMat);
-		shader.setFloat4x4("V", false, idMat);
 
-		//return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
-		return true;
+		shader.setFloat4x4("P", true, persp);
+		shader.setFloat4x4("V", false, view); //TODO transpose ?
+
+		return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
 	};
 
 
@@ -208,7 +213,7 @@ void runVoxelized(){
 		glfwSwapBuffers(win);
 		glfwPollEvents();
 
-		processInput(win);
+		processInput(win); //TODO dt(StopWatch) + input processing
 
 		checkForGlErrors();
 	}

@@ -5,17 +5,18 @@ import std.traits;
 import util;
 import traits;
 
+//stack allocated(value type semantics)
 struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
-	T[N * M] array; //stores by row
+	T[N * M] array; //stores by row, static on-stack array
 
 
 	//indexing of a matrix
 	ref T opIndex(size_t i, size_t j) {
-		return array[i * N + j];
+		return array[i * M + j];
 	}
 
 	T opIndex(size_t i, size_t j) const {
-		return array[i * N + j];
+		return array[i * M + j];
 	}
 
 
@@ -32,14 +33,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 			return array[i];
 		}
 
-		static if (N * M == 3){
-			auto cross(Matrix!(T,N,M) other){
-				T[N*M] array = [this[1]*other[2] - this[2]*other[1], -this[0]*other[2] + this[2]*other[0], this[0]*other[1] - this[1]*other[0]];
-				static if(N == 3) return Matrix!(T,3,1)(array);
-				static if(M == 3) return Matrix!(T,1,3)(array);
-				
-			}
-		}
+
 
 		T x() const{
 			return array[0];
@@ -70,7 +64,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		T[N * M] res;
 
 		for(size_t i = 0; i < N * M; ++i){
-			res[i] = -this[i];
+			res[i] = -this.array[i];
 		}
 
 		return Matrix!(T,N,M)(res);
@@ -99,7 +93,25 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		
 	}
 
-	
+	auto opBinary(string op)(T k) const{
+	    static if(op == "*"){
+	        T[N * M] res = array;
+	        for(size_t i = 0; i < N * M; ++i){
+	            res[i] *= k;
+	        }
+
+	        return Matrix!(T,N,M)(res);
+	    }
+
+	    static if(op == "/"){
+            T[N * M] res = array;
+            for(size_t i = 0; i < N * M; ++i){
+                res[i] /= k;
+            }
+
+            return Matrix!(T,N,M)(res);
+        }
+	}
 
 
 	T0 fold(T0)(T0 accum, T0 function(T,T0) f){
@@ -126,8 +138,8 @@ auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 }
 
 
-auto cross(T)(Vector3!T a, Vector3!T b){
-	return Vector3!T(a[1]*b[2] - b[1]*a[2], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - b[0] * a[1]);
+auto cross(T)(Matrix!(T,3,1) a, Matrix!(T,3,1) b){
+	return Vector3!T([a[1]*b[2] - b[1]*a[2], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - b[0] * a[1]]);
 }
 
 
@@ -141,6 +153,40 @@ auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
 	}
 
 	return Matrix!(T,N,M)(res);
+}
+
+
+Vector!(T,M) row(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
+    T[M] res;
+
+    for(size_t i = 0; i < M; ++i){
+        res[i] = a[index, i];
+    }
+
+    return Vector!(T,M)(res);
+}
+
+Vector!(T,N) column(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
+    T[N] res;
+
+    for(size_t i = 0; i < N; ++i){
+        res[i] = a[i, index];
+    }
+
+    return Vector!(T,N)(res);
+}
+
+Matrix!(T,N,P) mult(T, size_t N, size_t M, size_t P)(Matrix!(T,N,M) a, Matrix!(T,M,P) b){
+    T[N*P] ar;
+    auto res = Matrix!(T,N,P)(ar);
+
+    for(size_t i = 0; i < N; ++i){
+        for(size_t j = 0; j < P; ++j){
+            res[i,j] = dot(row(a, i), column(b, j));
+        }
+    }
+
+    return res;
 }
 
 //column vector
@@ -178,3 +224,6 @@ auto matS(alias val)() {
 
 	return Matrix!(T,N,M)(ret);
 }
+
+
+

@@ -69,7 +69,10 @@ struct Program{
     void setFloat4x4(string name, bool transpose, const ref Matrix4!(float) float4x4){
         import std.stdio;
         import std.conv;
-        //writeln(to!string(getUniform(name)) ~ " " ~ to!string(this) ~ " " ~ name ~ " setFloat4x4");
+        writeln(to!string(getUniform(name)) ~ " " ~ to!string(this) ~ " " ~ name ~ " setFloat4x4");
+        for(size_t i = 0; i < 16; ++i){
+            writeln(float4x4.array.ptr[i]);
+        }
         glUniformMatrix4fv(getUniform(name), 1, transpose, cast(const(float)*) float4x4.array.ptr);
     }
 }
