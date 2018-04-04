@@ -69,10 +69,6 @@ struct Program{
     void setFloat4x4(string name, bool transpose, const ref Matrix4!(float) float4x4){
         import std.stdio;
         import std.conv;
-        writeln(to!string(getUniform(name)) ~ " " ~ to!string(this) ~ " " ~ name ~ " setFloat4x4");
-        for(size_t i = 0; i < 16; ++i){
-            writeln(float4x4.array.ptr[i]);
-        }
         glUniformMatrix4fv(getUniform(name), 1, transpose, cast(const(float)*) float4x4.array.ptr);
     }
 }
@@ -98,6 +94,7 @@ extern (C) void glfwPollEvents();
 extern (C) size_t glfwGetKey(const (GlfwWindow*) win, int key);
 extern (C) void glfwSetWindowShouldClose(GlfwWindow* win, bool shouldClose);
 extern (C) void glfwSetInputMode(GlfwWindow* win, size_t mode, int value);
+extern (C) void glfwGetCursorPos(GlfwWindow* win, double* x, double* y);
 extern (C) void glfwGetWindowSize(GlfwWindow* win, size_t* w, size_t* h);
 extern (C) GlfwVidMode* glfwGetVideoMode(GlfwMonitor* mon);
 extern (C) GlfwMonitor* glfwGetPrimaryMonitor();

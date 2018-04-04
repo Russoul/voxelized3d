@@ -4,6 +4,7 @@ import std.stdio;
 import std.traits;
 import util;
 import traits;
+import std.math;
 
 //stack allocated(value type semantics)
 struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
@@ -57,6 +58,12 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		T w() const{
 			return array[3];
 		}
+
+        static if(N >= 4 && M == 1){
+            Vector!(T,3) xyz() const{
+                return Vector!(T,3)([x, y, z]);
+            }
+        }
 	}
 
 	
@@ -124,6 +131,13 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 }
 
 
+T norm(T, size_t N)(Matrix!(T,N,1) a){
+    return sqrt(dot(a,a));
+}
+
+auto normalize(T, size_t N)(Matrix!(T, N, 1) a){
+    return a / norm(a);
+}
 
 auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 	

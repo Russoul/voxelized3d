@@ -49,3 +49,18 @@ Matrix4!(float) translation(Vector3!float deltaX){
                           0,0,1,deltaX.z,
                           0,0,0,1]);
 }
+
+
+//u - unit vector that specifies the axis of rotation
+//theta - angle in radians
+Matrix4!(float) rotation(Vector3!float u, float theta){
+    float sinTheta = sin(theta);
+    float cosTheta = cos(theta);
+
+    return Matrix4!float([
+        cosTheta + u.x * u.x * (1.0F - cosTheta), u.x * u.y * (1.0F - cosTheta) - u.z * sinTheta, u.x * u.z * (1.0F - cosTheta) + u.y * sinTheta, 0.0,
+        u.y * u.x * (1.0F - cosTheta) + u.z * sinTheta, cosTheta + u.y * u.y * (1.0F - cosTheta), u.y * u.z * (1.0F - cosTheta) - u.x * sinTheta, 0.0,
+        u.z * u.x * (1.0F - cosTheta) - u.y * sinTheta, u.z * u.y * (1.0F - cosTheta) + u.x * sinTheta, cosTheta + u.z * u.z * (1.0F - cosTheta), 0.0,
+        0.0F, 0.0F, 0.0F, 1.0F
+    ]);
+}

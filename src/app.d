@@ -8,7 +8,8 @@ import std.array;
 import std.file;
 import std.path;
 import std.container.slist;
-import std.datetime;
+import std.datetime.stopwatch;
+import std.math;
 
 import util;
 import graphics;
@@ -36,9 +37,107 @@ void checkForGlErrors(){
 	}
 }
 
-void processInput(GlfwWindow* win){
+
+Vector2!double lastCursorPos = vecS!([0.0,0.0]);
+void processInput(GlfwWindow* win, ref Camera camera, ulong frameDeltaNs){
 	if(glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(win, true);
+
+    double deltaSec = frameDeltaNs / 1000000000.0; //nano is 10^(-9)
+
+
+    double unitPerSecond = 2.5F;
+
+    float gain = unitPerSecond * cast(float)deltaSec;
+
+
+    auto right = camera.look.cross(camera.up);
+
+    if(glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS){
+        camera.pos = camera.pos + camera.look * gain;
+    }
+
+    if(glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS){
+        camera.pos = camera.pos - camera.look * gain;
+    }
+
+
+    if(glfwGetKey(win, GLFW_KEY_A) == GLFW_PRESS){
+        camera.pos = camera.pos - right * gain;
+    }
+
+    if(glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS){
+        camera.pos = camera.pos + right * gain;
+    }
+
+    if(glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS){
+        camera.pos = camera.pos + camera.up * gain;
+    }
+
+    if(glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS){
+        camera.pos = camera.pos - camera.up * gain;
+    }
+
+    auto cursorPos = vecS!([0.0, 0.0]);
+
+    glfwGetCursorPos(win, cursorPos.array.ptr, cursorPos.array.ptr + 1);
+
+    auto cursorDelta = cursorPos - lastCursorPos;
+
+    auto angularVelocity = cast(float)PI / 2.0;
+
+    // ==============
+    auto yaw = cursorDelta.x * angularVelocity * deltaSec;
+
+    auto rotYaw = rotation(camera.up, -yaw);
+
+    auto newLook = mult(rotYaw, Vector4!float([camera.look.x, camera.look.y, camera.look.z, 1.0F])).xyz.normalize();
+
+    camera.look = newLook;
+
+    right = camera.look.cross(camera.up); //update `right`
+
+    // ===============
+
+
+    auto pitch = cursorDelta.y * angularVelocity * deltaSec;
+
+    auto rotPitch = rotation(right, -pitch);
+
+    newLook = mult(rotPitch, Vector4!float([camera.look.x, camera.look.y, camera.look.z, 1.0F])).xyz.normalize();
+
+    camera.look = newLook;
+
+    camera.up = right.cross(newLook);
+
+    //`right` does not need to be updated
+
+    // ================
+
+
+    float roll = 0.0F;
+
+    if(glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS){
+        roll += angularVelocity * deltaSec;
+    }
+
+    if(glfwGetKey(win, GLFW_KEY_E) == GLFW_PRESS){
+        roll -= angularVelocity * deltaSec;
+    }
+
+    auto rotRoll = rotation(camera.look, -roll);
+
+    auto newUp = mult(rotRoll, Vector4!float([camera.up.x, camera.up.y, camera.up.z, 1.0F])).xyz.normalize();
+
+    camera.up = newUp;
+
+    right = camera.look.cross(camera.up); //update `right`
+
+
+    //TODO make camera movement smoother
+
+    lastCursorPos = cursorPos;
+
 }
 
 
@@ -121,6 +220,7 @@ void runVoxelized(){
 
 	glfwSetFramebufferSizeCallback(win, &framebufSzCb);
 	glfwSetInputMode(win, GLFW_STICKY_KEYS, 1);
+	glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glViewport(0,0,defWidth,defHeight);
 
@@ -178,7 +278,7 @@ void runVoxelized(){
 
 
 		shader.setFloat4x4("P", true, persp);
-		shader.setFloat4x4("V", false, view); //TODO transpose ?
+		shader.setFloat4x4("V", true, view); //TODO transpose ?
 
 		return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
 	};
@@ -200,20 +300,34 @@ void runVoxelized(){
 
 
 
-	//TODO frame time (precise timer)
+	StopWatch sw;
+	sw.start();
+    enum n = 100;
+
 
 	glEnable(GL_DEPTH_TEST);
 	while(!glfwWindowShouldClose(win)){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
+        sw.stop();
+
+        ulong frameDeltaNs; //frame delta time TODO render it
+        sw.peek().split!"nsecs"(frameDeltaNs);
+
 		voxelRenderer.draw(winInfo, camera);
+		sw.reset();
+		sw.start();
+
+
+
+
 
 		updateWindowInfo(winInfo);
 		glfwSwapBuffers(win);
 		glfwPollEvents();
 
-		processInput(win); //TODO dt(StopWatch) + input processing
+		processInput(win, camera, frameDeltaNs); //TODO dt(StopWatch) + input processing
 
 		checkForGlErrors();
 	}
