@@ -1,0 +1,4 @@
+--check out D experimental allocators
+
+
+--test umdc, choose between umcd, uniform cubical marching squares and uniform/adaptive blocky terrain
