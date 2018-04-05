@@ -131,6 +131,12 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 }
 
 
+Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
+    T[N * M] res;
+
+    return Matrix!(T,N,M)(res);
+}
+
 T norm(T, size_t N)(Matrix!(T,N,1) a){
     return sqrt(dot(a,a));
 }
@@ -141,7 +147,7 @@ auto normalize(T, size_t N)(Matrix!(T, N, 1) a){
 
 auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 	
-    T res = zero!T();
+    T res = traits.zero!T();
 	
 	for(size_t i = 0; i < N; ++i){
 		res += a.array[i] * b.array[i];

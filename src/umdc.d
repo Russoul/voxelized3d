@@ -3,6 +3,8 @@ module umdc;
 import std.math;
 import std.stdio;
 import std.container.array;
+import std.typecons;
+import std.conv;
 
 import math;
 import matrix;
@@ -12,9 +14,6 @@ import graphics;
 import render;
 
 
-import dlib.container.dict;
-
-alias DenFn3(T) = T delegate(Vector3!T) @nogc;
 
 //in D static rectangular array is continious in memory
 uint[16][256] edgeTable = [
@@ -366,7 +365,7 @@ struct HermiteGrid{
     }
 }
 
-@nogc Vector3!float sampleSurfaceIntersection(const ref Line!(float,3) line, size_t n, const ref DenFn3!float f){
+@nogc Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, const ref DenFn3 f){
     auto ext = line.end - line.start;
     auto norm = ext.norm();
     auto dir = ext / norm;
@@ -393,7 +392,7 @@ struct HermiteGrid{
 
 }
 
-@nogc Vector3!float calculateNormal(Vector3!float point, float eps, const ref DenFn3!float f){
+@nogc Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, const ref DenFn3 f){
     return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y + eps, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]);
@@ -468,12 +467,17 @@ bool isConstSign(float a, float b){
 
 
 
+//TODO curently HermiteGrid is not used
+void extract(alias DenFn3)(const ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float color, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
-void umdc(const ref DenFn3!float f, Vector3!float offset, float a, size_t size, size_t accuracy, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
-    auto features = Array!(Vector3!float[size_t])(); //TODO does it auto initialize hashmap ?
+    alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer and normal
+
+    auto features = Array!(CellData[size_t])(); //TODO does it auto initialize hashmap ?
     features.reserve(size * size * size);
+    features.length = size * size * size; //make sure we can access any feature
     //TODO switch to nogc hashmap or use arrays with O(1) access but more memory use as a tradeoff
+    //TODO normals are duplicated !
 
     size_t indexFeature(size_t x, size_t y, size_t z){
         return z * size * size + y * size + x;
@@ -492,11 +496,16 @@ void umdc(const ref DenFn3!float f, Vector3!float offset, float a, size_t size, 
         uint config = 0;
         for(size_t i = 0; i < 8; ++i){
             auto p = cellMin + cornerPoints[i] * a;
+            writeln("den: " ~ to!string(f(p)));
+            stdout.flush();
             densities[i] = f(p);
             if(densities[i] < 0.0){
                 config |= 1 << i;
             }
         }
+
+        writeln("config: " ~ to!string(config));
+        stdout.flush();
 
         auto vertices = whichEdgesAreSigned(config);
 
@@ -510,21 +519,27 @@ void umdc(const ref DenFn3!float f, Vector3!float offset, float a, size_t size, 
                 auto v2 = cornerPoints[pair.y];
 
                 auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
-                auto intersection = sampleSurfaceIntersection(edge, accuracy, f);
-                auto normal = calculateNormal(intersection, a/2.0, f); //TODO test this `eps`
+                auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, accuracy, f);
+                auto normal = calculateNormal!(DenFn3)(intersection, a/2.0, f); //TODO test this `eps`
 
                 auto plane = Plane!float(intersection, normal);
 
                 curPlanes.insertBack(plane);
 
 
+                CellData cellData;
+                cellData.normal = normal;
+                features[indexFeature(x,y,z)][edgeId] = cellData;
             }
 
             auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
 
             foreach(edgeId; vertex){
-                features[indexFeature(x,y,z)][edgeId] = minimizer;
+                features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
             }
+
+            writeln(features[indexFeature(x,y,z)].length);
+            stdout.flush();
 
 
         }
@@ -535,13 +550,36 @@ void umdc(const ref DenFn3!float f, Vector3!float offset, float a, size_t size, 
         auto cell = features[indexFeature(x,y,z)]; //no need for reference store here as assoc array is a class
         foreach(ref edgeIdAndMinimizer; cell.byKeyValue){
             auto edgeId = edgeIdAndMinimizer.key;
-            auto minimizer = edgeIdAndMinimizer.value;
+            auto data = edgeIdAndMinimizer.value;
+
+            writeln("edgeID: " ~ to!string(edgeId));
+            stdout.flush();
+
+            auto normal = data.normal;
 
             if(edgeId == 5){
                 auto r = features[indexFeature(x+1,y,z)][7];
                 auto ru = features[indexFeature(x+1,y+1,z)][3];
                 auto u = features[indexFeature(x,y+1,z)][1];
-                //auto normal = //TODO store normal with minimizer
+
+
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, r.minimizer, ru.minimizer), color, normal);
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, ru.minimizer, u.minimizer), color, normal);
+            }else if(edgeId == 6){
+                auto f = features[indexFeature(x,y,z+1)][4];
+                auto fu = features[indexFeature(x,y+1,z+1)][0];
+                auto u = features[indexFeature(x,y+1,z)][2];
+
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, fu.minimizer), color, normal);
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, fu.minimizer, u.minimizer), color, normal);
+            }else if(edgeId == 10){
+                auto r = features[indexFeature(x+1,y,z)][11];
+                auto rf = features[indexFeature(x+1,y,z+1)][8];
+                auto f = features[indexFeature(x,y,z+1)][9];
+
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, rf.minimizer, r.minimizer), color, normal);
+                addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, rf.minimizer), color, normal);
+
             }
         }
     }

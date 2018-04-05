@@ -3,6 +3,8 @@ module graphics;
 import util;
 import matrix;
 
+//TODO split this file into different modules
+
 struct GlfwWindow{}
 struct GlfwMonitor{}
 
@@ -141,6 +143,73 @@ extern (C) size_t glGetError();
 extern (C) void memset(void* ptr, ubyte set, size_t n);
 
 //========================================================
+
+
+// ============= Fast Noise library ======================
+
+alias FN_DECIMAL = float;
+extern (C++){
+
+
+
+    struct FastNoise{
+
+
+            enum Interp { Linear, Hermite, Quintic }
+
+            enum FractalType { FBM, Billow, RigidMulti }
+
+            enum CellularDistanceFunction { Euclidean, Manhattan, Natural }
+            enum CellularReturnType { CellValue, NoiseLookup, Distance, Distance2, Distance2Add, Distance2Sub, Distance2Mul, Distance2Div }
+
+            enum NoiseType{
+                Value, ValueFractal, Perlin, PerlinFractal, Simplex, SimplexFractal, Cellular, WhiteNoise, Cubic, CubicFractal
+            }
+
+           private ubyte[512] m_perm;
+           private ubyte[512] m_perm12;
+
+
+           private int m_seed = 1337;
+           private FN_DECIMAL m_frequency = 0.01;
+           private Interp m_interp = Interp.Quintic;
+           private NoiseType m_noiseType = NoiseType.Simplex;
+
+           private int m_octaves = 3;
+
+           private FN_DECIMAL m_lacunarity = FN_DECIMAL(2);
+           private FN_DECIMAL m_gain = FN_DECIMAL(0.5);
+           private FractalType m_fractalType = FractalType.FBM;
+           private FN_DECIMAL m_fractalBounding;
+
+           private CellularDistanceFunction m_cellularDistanceFunction = CellularDistanceFunction.Euclidean;
+           private CellularReturnType m_cellularReturnType = CellularReturnType.CellValue;
+           private FastNoise* m_cellularNoiseLookup = null;
+           private int m_cellularDistanceIndex0 = 0;
+           private int m_cellularDistanceIndex1 = 1;
+           private FN_DECIMAL m_cellularJitter = FN_DECIMAL(0.45);
+
+           private FN_DECIMAL m_gradientPerturbAmp = FN_DECIMAL(1);
+
+
+
+           FN_DECIMAL GetFrequency(){
+               return m_frequency;
+           }
+           void SetFrequency(FN_DECIMAL frequency){
+               m_frequency = frequency;
+           }
+           NoiseType GetNoiseType() const{
+               return m_noiseType;
+           }
+           void SetNoiseType(NoiseType typee){
+               m_noiseType = typee;
+           }
+           @nogc FN_DECIMAL GetValue(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const;
+    }
+}
+
+// =======================================================
 
 
 enum GL_DEPTH_BUFFER_BIT = 0x00000100;

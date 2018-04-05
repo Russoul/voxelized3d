@@ -17,6 +17,7 @@ import matrix;
 import RenderingEngine;
 import render;
 import math;
+import umdc;
 
 
 
@@ -234,10 +235,15 @@ void runVoxelized(){
 
 	auto rendererLines = new RenderVertFragDef("color", GL_LINES, () => setAttribPtrsColor());
 	auto rendererTrianglesColor = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor());
+    auto rendererTrianglesLight = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
+
 
 	auto red = Vector3!(float)([1.0F, 0.0F, 0.0F]);
 	auto green = Vector3!(float)([0.0F, 1.0F, 0.0F]);
-	
+	auto blue = Vector3!(float)([0.0F, 0.0F, 1.0F]);
+	auto black = zero!(float,3,1);
+	auto white = red + green + blue;
+	auto brown = Vector3!float([139.0F/256.0F,69.0F/255.0F,19.0F/255.0F]);
 	
 	 addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
 	 	Vector3!float([-0.3, 0, -1]),
@@ -253,6 +259,39 @@ void runVoxelized(){
 
 	), red);
 
+
+
+    // ========================= UMDC ==============================
+    auto noise = FastNoise();
+    noise.SetFrequency(4.0F);
+    writeln(noise.GetNoiseType());
+    //noise.SetNoiseType(NoiseType.Perlin);
+    writeln(noise.GetValue(0.5F,0.5F,0.5F));
+
+
+    struct DenFn3{
+        FastNoise noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
+
+        @nogc float opCall(Vector3!float v) const{
+            return noise.GetValue(v.x, v.y, v.z);
+        }
+    }
+
+    DenFn3 f = {noise};
+    auto offset = zero!(float,3,1)();
+    float a = 0.125F;
+    size_t size = 128;
+    size_t acc = 16;
+
+    auto color = brown;
+
+    writeln("denTest: " ~ to!string(f(offset)));
+    stdout.flush();
+
+    //umdc.extract!(DenFn3)(f, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+
+
+    // ==============================================================
 
 
 
@@ -300,6 +339,9 @@ void runVoxelized(){
 
 
 
+
+
+
 	StopWatch sw;
 	sw.start();
     enum n = 100;
@@ -318,10 +360,6 @@ void runVoxelized(){
 		voxelRenderer.draw(winInfo, camera);
 		sw.reset();
 		sw.start();
-
-
-
-
 
 		updateWindowInfo(winInfo);
 		glfwSwapBuffers(win);
