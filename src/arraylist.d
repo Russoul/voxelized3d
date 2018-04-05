@@ -1,6 +1,7 @@
 module arraylist;
 
 
+//TODO REMOVE ME, USE std.container.array instead
 public class ArrayList(V) {
     V[] array;
     private int lastIndex;

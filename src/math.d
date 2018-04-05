@@ -10,6 +10,27 @@ struct Triangle(T, size_t N){
     Vector!(T, N) p3;
 }
 
+struct Plane(T){
+    Vector3!T point;
+    Vector3!T normal;
+}
+
+
+struct Square(T){
+    Vector2!T center;
+    T extent;
+}
+
+struct Cube(T){
+    Vector3!T center;
+    T extent;
+}
+
+struct Line(T, size_t N){
+    Vector!(T, N) start;
+    Vector!(T, N) end;
+}
+
 
 //about memory layout of matrices in opengl:
 //https://stackoverflow.com/questions/17717600/confusion-between-c-and-opengl-matrix-order-row-major-vs-column-major

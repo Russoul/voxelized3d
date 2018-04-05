@@ -84,7 +84,7 @@ void processInput(GlfwWindow* win, ref Camera camera, ulong frameDeltaNs){
 
     auto cursorDelta = cursorPos - lastCursorPos;
 
-    auto angularVelocity = cast(float)PI / 2.0;
+    auto angularVelocity = cast(float)PI / 3.0;
 
     // ==============
     auto yaw = cursorDelta.x * angularVelocity * deltaSec;
@@ -278,7 +278,7 @@ void runVoxelized(){
 
 
 		shader.setFloat4x4("P", true, persp);
-		shader.setFloat4x4("V", true, view); //TODO transpose ?
+		shader.setFloat4x4("V", true, view);
 
 		return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
 	};

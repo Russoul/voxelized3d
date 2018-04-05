@@ -137,6 +137,11 @@ extern (C) void glUseProgram(size_t id);
 extern (C) void glGetIntegerv(size_t param, int* value);
 extern (C) size_t glGetError();
 
+// ============ C standard library =======================
+extern (C) void memset(void* ptr, ubyte set, size_t n);
+
+//========================================================
+
 
 enum GL_DEPTH_BUFFER_BIT = 0x00000100;
 enum GL_STENCIL_BUFFER_BIT = 0x00000400;

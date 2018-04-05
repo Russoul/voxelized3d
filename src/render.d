@@ -1,12 +1,14 @@
 module render;
 
+import std.conv;
+import std.stdio;
+import std.container.array;
+
 import util;
 import graphics;
-import arraylist;
-import std.stdio;
 import matrix;
 import math;
-import std.conv;
+
 
 class RenderVertFrag{
     size_t renderMode;
@@ -19,8 +21,8 @@ class RenderVertFrag{
 }
 
 class RenderVertFragDef : RenderVertFrag{
-    ArrayList!float vertexPool;
-    ArrayList!uint indexPool; //uint is 32bit
+    Array!float vertexPool;
+    Array!uint indexPool; //uint is 32bit
     uint vertexCount = 0;
     size_t VBO;
     size_t VAO;
@@ -34,8 +36,11 @@ class RenderVertFragDef : RenderVertFrag{
         this.renderMode = mode;
         this.setAttribPtrs = setAttribPtrs;
 
-        vertexPool = new ArrayList!float();
-        indexPool = new ArrayList!uint();
+        vertexPool = Array!float();
+        indexPool = Array!uint();
+
+        vertexPool.reserve(1000); //TODO make it better
+        indexPool.reserve(1000);  //
     }
     
     override bool construct(){
@@ -57,9 +62,9 @@ class RenderVertFragDef : RenderVertFrag{
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 
-        glBufferData(GL_ARRAY_BUFFER, vertexPool.size() * float.sizeof, cast(const void *) vertexPool.array.ptr, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertexPool.length * float.sizeof, cast(const void *) &vertexPool[0], GL_STATIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexPool.size() * uint.sizeof, cast(const void *) indexPool.array.ptr, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexPool.length * uint.sizeof, cast(const void *) &indexPool[0], GL_STATIC_DRAW);
         setAttribPtrs();
         
 
@@ -87,7 +92,7 @@ class RenderVertFragDef : RenderVertFrag{
         if(!constructed) return false;
 
         glBindVertexArray(VAO);
-        glDrawElements(renderMode, indexPool.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(renderMode, indexPool.length, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         return true;
@@ -123,9 +128,9 @@ void setAttribPtrsNormal(){
 
 
 private void addFloat3(RenderVertFragDef dat, Vector3!float v){
-    dat.vertexPool.push(v.x);
-    dat.vertexPool.push(v.y);
-    dat.vertexPool.push(v.z);
+    dat.vertexPool.insertBack(v.x);
+    dat.vertexPool.insertBack(v.y);
+    dat.vertexPool.insertBack(v.z);
 }
 
 void addTriangleLinesColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color){
@@ -138,14 +143,14 @@ void addTriangleLinesColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vecto
     addFloat3(dat, tri.p3);
     addFloat3(dat, color);
 
-    dat.indexPool.push(dat.vertexCount);
-    dat.indexPool.push(1 + dat.vertexCount);
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
 
-    dat.indexPool.push(1 + dat.vertexCount);
-    dat.indexPool.push(2 + dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
+    dat.indexPool.insertBack(2 + dat.vertexCount);
 
-    dat.indexPool.push(2 + dat.vertexCount);
-    dat.indexPool.push(dat.vertexCount);
+    dat.indexPool.insertBack(2 + dat.vertexCount);
+    dat.indexPool.insertBack(dat.vertexCount);
 
     dat.vertexCount += 3;
 }
@@ -160,9 +165,29 @@ void addTriangleColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!fl
     addFloat3(dat, tri.p3);
     addFloat3(dat, color);
 
-    dat.indexPool.push(dat.vertexCount);
-    dat.indexPool.push(1 + dat.vertexCount);
-    dat.indexPool.push(2 + dat.vertexCount);
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
+    dat.indexPool.insertBack(2 + dat.vertexCount);
+
+    dat.vertexCount += 3;
+}
+
+void addTriangleColorNormal(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color, Vector3!float normal){
+    addFloat3(dat, tri.p1);
+    addFloat3(dat, color);
+    addFloat3(dat, normal);
+
+    addFloat3(dat, tri.p2);
+    addFloat3(dat, color);
+    addFloat3(dat, normal);
+
+    addFloat3(dat, tri.p3);
+    addFloat3(dat, color);
+    addFloat3(dat, normal);
+
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
+    dat.indexPool.insertBack(2 + dat.vertexCount);
 
     dat.vertexCount += 3;
 }
