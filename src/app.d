@@ -33,6 +33,8 @@ extern (C) void framebufSzCb(GlfwWindow* win, size_t w, size_t h){
 void checkForGlErrors(){
 	auto err = glGetError();
 
+
+
 	while(err != GL_NO_ERROR){
 		stderr.writefln("GL error: %d", err);
 	}
@@ -244,13 +246,17 @@ void runVoxelized(){
 	auto black = zero!(float,3,1);
 	auto white = red + green + blue;
 	auto brown = Vector3!float([139.0F/256.0F,69.0F/255.0F,19.0F/255.0F]);
-	
-	 addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
+
+    addLine3Color(rendererLines, Line!(float,3)(black, red), red);
+    addLine3Color(rendererLines, Line!(float,3)(black, green), green);
+    addLine3Color(rendererLines, Line!(float,3)(black, blue), blue);
+
+	addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
 	 	Vector3!float([-0.3, 0, -1]),
 	 	Vector3!float([0.3, 0, -1]),
 	 	Vector3!float([0, 1, -1])
 
-	 ), green);
+	), green);
 
 	addTriangleColor(rendererTrianglesColor, Triangle!(float, 3)(
 		Vector3!float([-0.5, 0, -1]),
@@ -262,33 +268,40 @@ void runVoxelized(){
 
 
     // ========================= UMDC ==============================
-    auto noise = FastNoise();
-    noise.SetFrequency(4.0F);
-    writeln(noise.GetNoiseType());
-    //noise.SetNoiseType(NoiseType.Perlin);
-    writeln(noise.GetValue(0.5F,0.5F,0.5F));
-
+    auto noise = allocFastNoise();
+    setFrequency(noise, 4.0);
+    setNoiseType(noise, FastNoise.NoiseType.Perlin);
 
     struct DenFn3{
-        FastNoise noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
+        void* noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
 
-        @nogc float opCall(Vector3!float v) const{
-            return noise.GetValue(v.x, v.y, v.z);
+        @nogc float opCall(Vector3!float v){
+
+            return getValue(noise, v.x / 1.0F, v.y/1.0F, v.z/1.0F);
+        }
+    }
+
+    struct DenSphere{
+        Sphere!float sph;
+
+        @nogc float opCall(Vector3!float v){
+            return (sph.center - v).dot(sph.center - v) - sph.rad * sph.rad;
         }
     }
 
     DenFn3 f = {noise};
-    auto offset = zero!(float,3,1)();
+    auto offset = vec3!float(-2.0, -2.0, -2.0);
+    writeln(offset);
     float a = 0.125F;
-    size_t size = 128;
+    size_t size = 32;
     size_t acc = 16;
 
     auto color = brown;
 
-    writeln("denTest: " ~ to!string(f(offset)));
-    stdout.flush();
 
-    //umdc.extract!(DenFn3)(f, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+    DenSphere sph = {Sphere!float(vec3!float(0,0,0), 2)};
+
+    umdc.extract!(DenSphere)(sph, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
 
     // ==============================================================
@@ -297,7 +310,7 @@ void runVoxelized(){
 
 	shaders["lighting"].enable();
 	shaders["lighting"].setFloat3("pointLight.pos", vecS!([0.0F,8.0F,0.0F]));
-	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([1.0, 1.0, 1.0]));
+	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([15.0, 15.0, 15.0]));
 
 
 	auto shaderDataLines =
@@ -322,21 +335,47 @@ void runVoxelized(){
 		return glfwGetKey(win.handle, GLFW_KEY_TAB) != GLFW_PRESS;
 	};
 
+	auto shaderData =
+    	delegate(Program shader, const ref WindowInfo win, const ref Camera camera){
+    		auto aspect = cast(float)win.width / win.height;
+
+    		auto idMat = matS!([
+    			[1.0F, 0.0F, 0.0F, 0.0F],
+    			[0.0F, 1.0F, 0.0F, 0.0F],
+    			[0.0F, 0.0F, 1.0F, 0.0F],
+    			[0.0F, 0.0F, 0.0F, 1.0F]
+    		]);
+
+    		auto persp = perspectiveProjection(90.0F, aspect, 0.1F, 16.0F);
+    		auto view = viewDir(camera.pos, camera.look, camera.up);
+    		auto tr = translation(Vector3!float([0.5, 0,0]));
+
+
+    		shader.setFloat4x4("P", true, persp);
+    		shader.setFloat4x4("V", true, view);
+
+    		return true;
+    	};
+
 
 	auto providerLines = RenderDataProvider(none!(void delegate()), none!(void delegate()),
 	 some(shaderDataLines));
 
 
+    auto provider = RenderDataProvider(none!(void delegate()), none!(void delegate()), some(shaderData));
+
 
 	auto renderInfoLines = RenderInfo(rendererLines, providerLines);
-	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, providerLines);
+	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, provider);
+	auto renderInfoTrianglesLight = RenderInfo(rendererTrianglesLight, provider);
 
 	auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines);
-	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor); 
+	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor);
+	auto idTriLight = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTrianglesLight);
 
 	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.construct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.construct();
-
+    voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.construct();
 
 
 
@@ -373,7 +412,7 @@ void runVoxelized(){
 
 	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.deconstruct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.deconstruct();
-
+    voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.deconstruct();
 
 	glfwTerminate();
 

@@ -140,7 +140,7 @@ extern (C) void glGetIntegerv(size_t param, int* value);
 extern (C) size_t glGetError();
 
 // ============ C standard library =======================
-extern (C) void memset(void* ptr, ubyte set, size_t n);
+//extern (C) void memset(void* ptr, ubyte set, size_t n);
 
 //========================================================
 
@@ -208,6 +208,17 @@ extern (C++){
            @nogc FN_DECIMAL GetValue(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const;
     }
 }
+
+//TODO to be removed(above ^^^ variant actually works) =============
+extern (C){
+
+    void* allocFastNoise();
+    void* freeFastNoise(void* noise);
+    void setFrequency(void* noise, FN_DECIMAL frequency);
+    void setNoiseType(void* noise, FastNoise.NoiseType typee);
+    @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
+}
+//TODO =============================================================
 
 // =======================================================
 

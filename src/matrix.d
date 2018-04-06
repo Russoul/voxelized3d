@@ -2,9 +2,11 @@ module matrix;
 
 import std.stdio;
 import std.traits;
+import std.math;
+
 import util;
 import traits;
-import std.math;
+import graphics;
 
 //stack allocated(value type semantics)
 struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
@@ -133,6 +135,9 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 
 Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
     T[N * M] res;
+    foreach(i; 0..N*M){
+        res[i] = traits.zero!T();
+    }
 
     return Matrix!(T,N,M)(res);
 }
@@ -245,5 +250,7 @@ auto matS(alias val)() {
 	return Matrix!(T,N,M)(ret);
 }
 
-
+Vector3!T vec3(T)(T x, T y, T z){
+    return Vector3!T([x,y,z]);
+}
 

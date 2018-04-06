@@ -5,6 +5,7 @@ import std.stdio;
 import std.container.array;
 import std.typecons;
 import std.conv;
+import core.stdc.string;
 
 import math;
 import matrix;
@@ -16,7 +17,7 @@ import render;
 
 
 //in D static rectangular array is continious in memory
-uint[16][256] edgeTable = [
+int[16][256] edgeTable = [
                                    [-2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
                                    [0, 8, 3, -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
                                    [0, 1, 9, -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -365,7 +366,7 @@ struct HermiteGrid{
     }
 }
 
-@nogc Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, const ref DenFn3 f){
+@nogc Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
     auto ext = line.end - line.start;
     auto norm = ext.norm();
     auto dir = ext / norm;
@@ -392,7 +393,7 @@ struct HermiteGrid{
 
 }
 
-@nogc Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, const ref DenFn3 f){
+@nogc Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
     return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y + eps, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]);
@@ -405,9 +406,9 @@ bool isConstSign(float a, float b){
 
 //outer array corresponds to each vertex to be placed inside the cell
 //inner array binds edges according to the EMCT to that vertex
-@nogc Array!(Array!uint) whichEdgesAreSigned(uint config){
+Array!(Array!uint) whichEdgesAreSigned(uint config){
 
-    uint[16] entry = edgeTable[config];
+    int[16] entry = edgeTable[config];
     if(entry[0] == -2)
         return Array!(Array!uint)();
 
@@ -468,7 +469,7 @@ bool isConstSign(float a, float b){
 
 
 //TODO curently HermiteGrid is not used
-void extract(alias DenFn3)(const ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float color, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
+void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float color, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
 
     alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer and normal
@@ -496,16 +497,16 @@ void extract(alias DenFn3)(const ref DenFn3 f, Vector3!float offset, float a, si
         uint config = 0;
         for(size_t i = 0; i < 8; ++i){
             auto p = cellMin + cornerPoints[i] * a;
-            writeln("den: " ~ to!string(f(p)));
-            stdout.flush();
+            //writeln("den: " ~ to!string(f(p)) ~ " at: " ~ to!string(p));
+            //stdout.flush();
             densities[i] = f(p);
             if(densities[i] < 0.0){
                 config |= 1 << i;
             }
         }
 
-        writeln("config: " ~ to!string(config));
-        stdout.flush();
+        //writeln("config: " ~ to!string(config));
+        //stdout.flush();
 
         auto vertices = whichEdgesAreSigned(config);
 
@@ -538,9 +539,6 @@ void extract(alias DenFn3)(const ref DenFn3 f, Vector3!float offset, float a, si
                 features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
             }
 
-            writeln(features[indexFeature(x,y,z)].length);
-            stdout.flush();
-
 
         }
     }
@@ -551,9 +549,6 @@ void extract(alias DenFn3)(const ref DenFn3 f, Vector3!float offset, float a, si
         foreach(ref edgeIdAndMinimizer; cell.byKeyValue){
             auto edgeId = edgeIdAndMinimizer.key;
             auto data = edgeIdAndMinimizer.value;
-
-            writeln("edgeID: " ~ to!string(edgeId));
-            stdout.flush();
 
             auto normal = data.normal;
 

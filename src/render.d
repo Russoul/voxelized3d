@@ -44,7 +44,7 @@ class RenderVertFragDef : RenderVertFrag{
     }
     
     override bool construct(){
-        if (constructed) return false;
+        if (constructed || vertexPool.length == 0 || indexPool.length == 0) return false;
 
         
 
@@ -131,6 +131,20 @@ private void addFloat3(RenderVertFragDef dat, Vector3!float v){
     dat.vertexPool.insertBack(v.x);
     dat.vertexPool.insertBack(v.y);
     dat.vertexPool.insertBack(v.z);
+}
+
+
+void addLine3Color(RenderVertFragDef dat, Line!(float, 3) line, Vector3!float color){
+    addFloat3(dat, line.start);
+    addFloat3(dat, color);
+
+    addFloat3(dat, line.end);
+    addFloat3(dat, color);
+
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
+
+    dat.vertexCount += 2;
 }
 
 void addTriangleLinesColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color){

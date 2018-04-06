@@ -1,3 +1,5 @@
+module math;
+
 import util;
 import traits;
 import matrix;
@@ -29,6 +31,11 @@ struct Cube(T){
 struct Line(T, size_t N){
     Vector!(T, N) start;
     Vector!(T, N) end;
+}
+
+struct Sphere(T){
+    Vector3!(T) center;
+    T rad;
 }
 
 
