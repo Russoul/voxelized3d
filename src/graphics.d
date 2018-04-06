@@ -209,16 +209,15 @@ extern (C++){
     }
 }
 
-//TODO to be removed(above ^^^ variant actually works) =============
 extern (C){
 
+    //TODO better noise handle (typed)
     void* allocFastNoise();
     void* freeFastNoise(void* noise);
     void setFrequency(void* noise, FN_DECIMAL frequency);
     void setNoiseType(void* noise, FastNoise.NoiseType typee);
     @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
 }
-//TODO =============================================================
 
 // =======================================================
 

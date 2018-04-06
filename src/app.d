@@ -251,34 +251,70 @@ void runVoxelized(){
     addLine3Color(rendererLines, Line!(float,3)(black, green), green);
     addLine3Color(rendererLines, Line!(float,3)(black, blue), blue);
 
-	addTriangleLinesColor(rendererLines, Triangle!(float, 3)(
-	 	Vector3!float([-0.3, 0, -1]),
-	 	Vector3!float([0.3, 0, -1]),
-	 	Vector3!float([0, 1, -1])
-
-	), green);
-
-	addTriangleColor(rendererTrianglesColor, Triangle!(float, 3)(
-		Vector3!float([-0.5, 0, -1]),
-		Vector3!float([0.5, 0, -1]),
-		Vector3!float([0, 1, -1])
-
-	), red);
-
-
 
     // ========================= UMDC ==============================
     auto noise = allocFastNoise();
-    setFrequency(noise, 26.0);
+    setFrequency(noise, 6.0);
 
-    setNoiseType(noise, FastNoise.NoiseType.PerlinFractal);
+    setNoiseType(noise, FastNoise.NoiseType.Simplex);
+
+
+    float octaveNoise(void* noise, size_t octaves, float persistence, float x, float y, float z){
+        float total = 0.0F;
+        float frequency = 1.0F;
+        float amplitude = 1.0F;
+        float maxValue = 0.0;
+
+        float k = pow(2.0, octaves - 1);
+
+        foreach(i; 0..octaves){
+            total += getValue(noise, x * frequency / k, y * frequency / k, z * frequency / k);
+            maxValue += amplitude;
+            amplitude *= persistence;
+            frequency *= 2.0;
+        }
+
+        return total / maxValue;
+    }
+
+    struct DenUnion(alias Den1, alias Den2){
+        Den1 f1;
+        Den2 f2;
+
+        @nogc float opCall(Vector3!float v){
+            auto d1 = f1(v);
+            auto d2 = f2(v);
+
+            return min(d1, d2);
+        }
+    }
+
+    struct DenIntersection(alias Den1, alias Den2){
+        Den1 f1;
+        Den2 f2;
+
+        @nogc float opCall(Vector3!float v){
+            auto d1 = f1(v);
+            auto d2 = f2(v);
+
+            return max(d1, d2);
+        }
+    }
 
     struct DenFn3{
         void* noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
 
-        @nogc float opCall(Vector3!float v){
+        Cube!float cube;
 
-            return getValue(noise, v.x / 5.0F, v.y/5.0F, v.z/5.0F);
+        this(void* noise, Cube!float cube){
+            this.cube = cube;
+            this.noise = noise;
+        }
+
+        float opCall(Vector3!float v){
+
+            auto den = (octaveNoise(noise, 8, 0.95F, v.x/4.0F, 0, v.z/4.0F) + 1)/2 * cube.extent * 2;
+            return (v.y - (cube.center.y - cube.extent)) - den;
         }
     }
 
@@ -290,7 +326,135 @@ void runVoxelized(){
         }
     }
 
-     struct DenSphereDisplacement{
+    struct DenZPos{
+        float z;
+
+        @nogc float opCall(Vector3!float v){
+            return z - v.z;
+        }
+    }
+
+    struct DenZNeg{
+        float z;
+
+        @nogc float opCall(Vector3!float v){
+            return v.z - z;
+        }
+    }
+
+    struct DenYPos{
+        float y;
+
+        @nogc float opCall(Vector3!float v){
+            return y - v.y;
+        }
+    }
+
+    struct DenYNeg{
+        float y;
+
+        @nogc float opCall(Vector3!float v){
+            return v.y - y;
+        }
+    }
+
+    struct DenXPos{
+        float x;
+
+        @nogc float opCall(Vector3!float v){
+            return x - v.x;
+        }
+    }
+
+    struct DenXNeg{
+        float x;
+
+        @nogc float opCall(Vector3!float v){
+            return v.x - x;
+        }
+    }
+
+
+    struct DenHalfSpace{
+        Plane!float plane;
+
+        @nogc float opCall(Vector3!float v){
+            return -dot(plane.normal,v - plane.point);
+        }
+    }
+
+
+
+
+
+    struct DenOBB{
+
+        alias I1 = DenIntersection!(DenHalfSpace,DenHalfSpace);
+        alias I2 = DenIntersection!(DenHalfSpace,DenHalfSpace);
+        alias I3 = DenIntersection!(DenHalfSpace,DenHalfSpace);
+        alias I4 = DenIntersection!(I1, I2);
+        DenIntersection!(I4, I3) i;
+
+        this(OBB!float obb){
+            auto look = cross(obb.up,obb.right);
+            DenHalfSpace zp = {{obb.center - look * obb.extent.z, look}};
+            DenHalfSpace zn = {{obb.center + look * obb.extent.z, -look}};
+
+            DenHalfSpace yp = {{obb.center - obb.up * obb.extent.y, obb.up}};
+            DenHalfSpace yn = {{obb.center + obb.up * obb.extent.y, -obb.up}};
+
+            DenHalfSpace xp = {{obb.center - obb.right * obb.extent.x, obb.right}};
+            DenHalfSpace xn = {{obb.center + obb.right * obb.extent.x, -obb.right}};
+
+            DenIntersection!(DenHalfSpace,DenHalfSpace) i1 = {zp,zn};
+            DenIntersection!(DenHalfSpace,DenHalfSpace) i2 = {yp,yn};
+            DenIntersection!(DenHalfSpace,DenHalfSpace) i3 = {xp,xn};
+
+            DenIntersection!(typeof(i1), typeof(i2)) i4 = {i1,i2};
+            DenIntersection!(typeof(i4), typeof(i3)) i = {i4,i3};
+
+            this.i = i;
+        }
+
+        @nogc float opCall(Vector3!float v){
+            return i(v);
+        }
+    }
+
+    struct DenCube{
+
+        alias I1 = DenIntersection!(DenZPos,DenZNeg);
+        alias I2 = DenIntersection!(DenYPos,DenYNeg);
+        alias I3 = DenIntersection!(DenXPos,DenXNeg);
+        alias I4 = DenIntersection!(I1, I2);
+        DenIntersection!(I4, I3) i;
+
+        this(Cube!float cube){
+            DenZPos zp = {cube.center.z - cube.extent};
+            DenZNeg zn = {cube.center.z + cube.extent};
+
+            DenYPos yp = {cube.center.y - cube.extent};
+            DenYNeg yn = {cube.center.y + cube.extent};
+
+            DenXPos xp = {cube.center.x - cube.extent};
+            DenXNeg xn = {cube.center.x + cube.extent};
+
+            DenIntersection!(DenZPos,DenZNeg) i1 = {zp,zn};
+            DenIntersection!(DenYPos,DenYNeg) i2 = {yp,yn};
+            DenIntersection!(DenXPos,DenXNeg) i3 = {xp,xn};
+
+            DenIntersection!(typeof(i1), typeof(i2)) i4 = {i1,i2};
+            DenIntersection!(typeof(i4), typeof(i3)) i = {i4,i3};
+
+            this.i = i;
+        }
+
+        @nogc float opCall(Vector3!float v){
+            return i(v);
+        }
+    }
+
+    struct DenSphereDisplacement{
         Sphere!float sph;
 
         @nogc float opCall(Vector3!float v){
@@ -299,20 +463,38 @@ void runVoxelized(){
         }
     }
 
-    DenFn3 f = {noise};
+
+
+
+
+
     auto offset = vec3!float(-2.0, -2.0, -2.0);
     writeln(offset);
-    float a = 0.125F;
-    size_t size = 64;
-    size_t acc = 8;
+    float a = 0.125F/2.0F;
+    size_t size = 128;
+    size_t acc = 16;
+
+
+    Cube!float bounds = Cube!float(offset + vec3!float(size/2 * a, size/2 * a, size/2 * a), size * a / 2);
+
+
+    DenFn3 f = DenFn3(noise, bounds);
 
     auto color = brown;
 
 
     DenSphereDisplacement sph = {Sphere!float(vec3!float(0,0,0), 2)};
 
-    umdc.extract!(DenSphereDisplacement)(sph, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+    auto cube = DenCube(Cube!float(vec3!float(1.0,1.0,1.0), 0.5));
+    auto sizee = 0.1F;
+    auto obb = DenOBB(OBB!float(vec3!float(-1.0,1.0,1.0), vec3!float(1.0F/sqrt(2.0F), 0, 1.0F/sqrt(2.0F)), vec3!float(0,1,0), vec3!float(sizee,sizee,sizee)));
+    DenUnion!(DenSphereDisplacement, DenCube) r = {sph, cube};
+    DenUnion!(typeof(r), DenOBB) q = {r, obb};
 
+    umdc.extract!(typeof(f))(f, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+
+
+    freeFastNoise(noise);
 
     // ==============================================================
 
@@ -320,7 +502,7 @@ void runVoxelized(){
 
 	shaders["lighting"].enable();
 	shaders["lighting"].setFloat3("pointLight.pos", vecS!([4.0F,4.0F,4.0F]));
-	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([15.0, 15.0, 15.0]));
+	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([25.0, 25.0, 25.0]));
 
 
 	auto shaderDataLines =

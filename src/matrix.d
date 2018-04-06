@@ -14,10 +14,12 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 
 
 	//indexing of a matrix
+	pragma(inline,true)
 	ref T opIndex(size_t i, size_t j) {
 		return array[i * M + j];
 	}
 
+    pragma(inline,true)
 	T opIndex(size_t i, size_t j) const {
 		return array[i * M + j];
 	}
@@ -27,23 +29,26 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	static if(N == 1 || M == 1){
 		
 		//indexing of a vector
+		pragma(inline,true)
 		ref T opIndex(size_t i) {
 			
 			return array[i];
 		}
 
+        pragma(inline,true)
 		T opIndex(size_t i) const {
 			return array[i];
 		}
 
 
-
+        pragma(inline,true)
 		T x() const{
 			return array[0];
 		}
 	}
 
 	static if(N >= 2 && M == 1 || N == 1 && M >= 2){
+	    pragma(inline,true)
 		T y() const{
 			return array[1];
 		}
@@ -51,24 +56,27 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	
 
 	static if(N >= 3 && M == 1 || N == 1 && M >= 3){
+	    pragma(inline,true)
 		T z() const{
 			return array[2];
 		}
 	}
 
 	static if(N >= 4 && M == 1 || N == 1 && M >= 4){
+	    pragma(inline,true)
 		T w() const{
 			return array[3];
 		}
 
         static if(N >= 4 && M == 1){
+            pragma(inline,true)
             Vector!(T,3) xyz() const{
                 return Vector!(T,3)([x, y, z]);
             }
         }
 	}
 
-	
+	pragma(inline,true)
 	auto opUnary(string op)() if (op == "-"){
 		T[N * M] res;
 
@@ -79,6 +87,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		return Matrix!(T,N,M)(res);
 	}
 
+    pragma(inline,true)
 	auto opBinary(string op)(Matrix!(T,N,M) other) const{
 		static if(op == "+"){
 			T[N] res = this.array[] + other.array[];
@@ -102,6 +111,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 		
 	}
 
+    pragma(inline,true)
 	auto opBinary(string op)(T k) const{
 	    static if(op == "*"){
 	        T[N * M] res = array;
@@ -123,6 +133,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	}
 
 
+    pragma(inline,true)
 	T0 fold(T0)(T0 accum, T0 function(T,T0) f){
 		for(size_t i = 0; i < N; ++i){
 			accum = f(array[i], accum);
@@ -132,7 +143,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	}
 }
 
-
+pragma(inline,true)
 Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
     T[N * M] res;
     foreach(i; 0..N*M){
@@ -142,14 +153,17 @@ Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
     return Matrix!(T,N,M)(res);
 }
 
+pragma(inline,true)
 T norm(T, size_t N)(Matrix!(T,N,1) a){
     return sqrt(dot(a,a));
 }
 
+pragma(inline,true)
 auto normalize(T, size_t N)(Matrix!(T, N, 1) a){
     return a / norm(a);
 }
 
+pragma(inline,true)
 auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 	
     T res = traits.zero!T();
@@ -162,12 +176,12 @@ auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 	return res;
 }
 
-
+pragma(inline,true)
 auto cross(T)(Matrix!(T,3,1) a, Matrix!(T,3,1) b){
 	return Vector3!T([a[1]*b[2] - b[1]*a[2], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - b[0] * a[1]]);
 }
 
-
+pragma(inline,true)
 auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
 	T[N*M] res;
 
@@ -180,7 +194,7 @@ auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
 	return Matrix!(T,N,M)(res);
 }
 
-
+pragma(inline,true)
 Vector!(T,M) row(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
     T[M] res;
 
@@ -191,6 +205,7 @@ Vector!(T,M) row(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
     return Vector!(T,M)(res);
 }
 
+pragma(inline,true)
 Vector!(T,N) column(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
     T[N] res;
 
@@ -201,6 +216,7 @@ Vector!(T,N) column(T, size_t N, size_t M)(Matrix!(T,N,M) a, size_t index){
     return Vector!(T,N)(res);
 }
 
+pragma(inline,true)
 Matrix!(T,N,P) mult(T, size_t N, size_t M, size_t P)(Matrix!(T,N,M) a, Matrix!(T,M,P) b){
     T[N*P] ar;
     auto res = Matrix!(T,N,P)(ar);
@@ -250,6 +266,7 @@ auto matS(alias val)() {
 	return Matrix!(T,N,M)(ret);
 }
 
+pragma(inline,true)
 Vector3!T vec3(T)(T x, T y, T z){
     return Vector3!T([x,y,z]);
 }

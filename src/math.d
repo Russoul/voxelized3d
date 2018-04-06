@@ -38,6 +38,12 @@ struct Sphere(T){
     T rad;
 }
 
+struct OBB(T){
+    Vector3!T center;
+    Vector3!T right;
+    Vector3!T up;
+    Vector3!T extent; // {right,up,look}
+}
 
 //about memory layout of matrices in opengl:
 //https://stackoverflow.com/questions/17717600/confusion-between-c-and-opengl-matrix-order-row-major-vs-column-major

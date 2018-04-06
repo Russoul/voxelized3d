@@ -133,6 +133,12 @@ private void addFloat3(RenderVertFragDef dat, Vector3!float v){
     dat.vertexPool.insertBack(v.z);
 }
 
+private void addIndices(size_t N)(RenderVertFragDef dat, uint[N] ind, uint offset){
+    foreach(i; ind){
+        dat.indexPool.insertBack(i + offset);
+    }
+}
+
 
 void addLine3Color(RenderVertFragDef dat, Line!(float, 3) line, Vector3!float color){
     addFloat3(dat, line.start);
@@ -147,10 +153,40 @@ void addLine3Color(RenderVertFragDef dat, Line!(float, 3) line, Vector3!float co
     dat.vertexCount += 2;
 }
 
+Vector3!float[8] cornerPoints = [
+                                    vecS!([0.0f,0.0f,0.0f]),
+                                    vecS!([1.0f,0.0f,0.0f]), //clockwise starting from zero y min
+                                    vecS!([1.0f,0.0f,1.0f]),
+                                    vecS!([0.0f,0.0f,1.0f]),
+
+
+                                    vecS!([0.0f,1.0f,0.0f]),
+                                    vecS!([1.0f,1.0f,0.0f]), //y max
+                                    vecS!([1.0f,1.0f,1.0f]),
+                                    vecS!([0.0f,1.0f,1.0f])
+];
+
+void addCubeBounds(RenderVertFragDef dat, Cube!float cube, Vector3!float color){
+    auto ext = Vector3!float([cube.extent, cube.extent, cube.extent]);
+    foreach(i; 0..8){
+        auto corner = cube.center - ext + cornerPoints[i] * cube.extent * 2.0;
+
+        addFloat3(dat, corner);
+        addFloat3(dat, color);
+    }
+
+    uint[24] indices = [0, 1, 1, 2, 2, 3, 3, 0,   4, 5, 5, 6, 6, 7, 7, 0,   0, 4, 1, 5, 2, 6, 3, 7];
+
+    addIndices(dat, indices, dat.vertexCount);
+
+    dat.vertexCount += 8;
+
+}
+
 void addTriangleLinesColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color){
     addFloat3(dat, tri.p1);
     addFloat3(dat, color);
-    
+
     addFloat3(dat, tri.p2);
     addFloat3(dat, color);
 
@@ -172,7 +208,7 @@ void addTriangleLinesColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vecto
 void addTriangleColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color){
     addFloat3(dat, tri.p1);
     addFloat3(dat, color);
-    
+
     addFloat3(dat, tri.p2);
     addFloat3(dat, color);
 

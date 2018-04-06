@@ -6,6 +6,9 @@ import std.container.array;
 import std.typecons;
 import std.conv;
 import core.stdc.string;
+import std.datetime.stopwatch;
+import std.parallelism;
+import std.range;
 
 import math;
 import matrix;
@@ -366,7 +369,7 @@ struct HermiteGrid{
     }
 }
 
-@nogc Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
+@Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
     auto ext = line.end - line.start;
     auto norm = ext.norm();
     auto dir = ext / norm;
@@ -393,7 +396,7 @@ struct HermiteGrid{
 
 }
 
-@nogc Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
+Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
     return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y + eps, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]);
@@ -431,7 +434,7 @@ Array!(Array!uint) whichEdgesAreSigned(uint config){
     return result;
 }
 
-@nogc float calculateQEF(Vector3!float point, const ref Array!(Plane!float) planes){
+float calculateQEF(Vector3!float point, const ref Array!(Plane!float) planes){
     float qef = 0.0F;
     foreach(ref plane; planes[]){
         auto distSigned = plane.normal.dot(point - plane.point);
@@ -441,7 +444,7 @@ Array!(Array!uint) whichEdgesAreSigned(uint config){
     return qef;
 }
 
-@nogc Vector3!float sampleQEFBrute(const ref Cube!float cube, size_t n, const ref Array!(Plane!float) planes){
+Vector3!float sampleQEFBrute(const ref Cube!float cube, size_t n, const ref Array!(Plane!float) planes){
     auto ext = Vector3!float([cube.extent, cube.extent, cube.extent]);
     auto min = cube.center - ext;
 
@@ -474,21 +477,25 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
     alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer and normal
 
-    auto features = Array!(CellData[size_t])(); //TODO does it auto initialize hashmap ?
+    auto available = new ubyte[size * size * size * 12];
+    memset(available.ptr, 0, size * size * size * 12);
+    auto features = Array!(CellData[12])(); //TODO does it auto initialize hashmap ?
     features.reserve(size * size * size);
     features.length = size * size * size; //make sure we can access any feature
     //TODO switch to nogc hashmap or use arrays with O(1) access but more memory use as a tradeoff
     //TODO normals are duplicated !
 
+    pragma(inline,true)
     size_t indexFeature(size_t x, size_t y, size_t z){
         return z * size * size + y * size + x;
     }
 
-
+    pragma(inline,true)
     Cube!float cube(size_t x, size_t y, size_t z){//cube bounds of a cell in the grid
         return Cube!float(offset + Vector3!float([(x + 0.5F)*a, (y + 0.5F) * a, (z + 0.5F) * a]), a / 2.0F);
     }
 
+    pragma(inline,true)
     void loadCell(size_t x, size_t y, size_t z){
         auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
         auto bounds = cube(x,y,z);
@@ -508,45 +515,86 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
         //writeln("config: " ~ to!string(config));
         //stdout.flush();
 
-        auto vertices = whichEdgesAreSigned(config);
+        if(config != 0 && config != 255){
 
-        foreach(ref vertex; vertices){
-            auto curPlanes = Array!(Plane!float)();
-            curPlanes.reserve(4); //TODO find the most efficient number
+            //addCubeBounds(renderLines, bounds, Vector3!float([1,1,1]));
 
-            foreach(edgeId; vertex){
-                auto pair = edgePairs[edgeId];
-                auto v1 = cornerPoints[pair.x];
-                auto v2 = cornerPoints[pair.y];
+            auto vertices = whichEdgesAreSigned(config);
 
-                auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
-                auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, accuracy, f);
-                auto normal = calculateNormal!(DenFn3)(intersection, a/2.0, f); //TODO test this `eps`
+            foreach(ref vertex; vertices){
+                auto curPlanes = Array!(Plane!float)();
+                curPlanes.reserve(4); //TODO find the most efficient number
 
-                auto plane = Plane!float(intersection, normal);
+                foreach(edgeId; vertex){
+                    auto pair = edgePairs[edgeId];
+                    auto v1 = cornerPoints[pair.x];
+                    auto v2 = cornerPoints[pair.y];
 
-                curPlanes.insertBack(plane);
+                    auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
+                    auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
+                    auto normal = calculateNormal!(DenFn3)(intersection, a/2.0, f); //TODO test this `eps`
+
+                    auto plane = Plane!float(intersection, normal);
+
+                    curPlanes.insertBack(plane);
 
 
-                CellData cellData;
-                cellData.normal = normal;
-                features[indexFeature(x,y,z)][edgeId] = cellData;
+                    CellData cellData;
+                    cellData.normal = normal;
+                    features[indexFeature(x,y,z)][edgeId] = cellData;
+                }
+
+                //auto minimizer = bounds.center;
+                auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
+
+                foreach(edgeId; vertex){
+                    features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
+                    available[z * size * size * 12 + y * size * 12 + x * 12 + edgeId] = 1;
+                }
+
+
             }
-
-            auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
-
-            foreach(edgeId; vertex){
-                features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
-            }
-
-
         }
     }
 
-
+    pragma(inline,true)
     void extactSurface(size_t x, size_t y, size_t z){
         auto cell = features[indexFeature(x,y,z)]; //no need for reference store here as assoc array is a class
-        foreach(ref edgeIdAndMinimizer; cell.byKeyValue){
+
+        foreach(edgeId; 0..12){
+            if(available[z * size * size * 12 + y * size * 12 + x * 12 + edgeId]){
+                auto data = cell[edgeId];
+                auto normal = data.normal;
+
+                if(edgeId == 5){
+                    auto r = features[indexFeature(x+1,y,z)][7];
+                    auto ru = features[indexFeature(x+1,y+1,z)][3];
+                    auto u = features[indexFeature(x,y+1,z)][1];
+
+
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, r.minimizer, ru.minimizer), color, normal);
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, ru.minimizer, u.minimizer), color, normal);
+                }else if(edgeId == 6){
+                    auto f = features[indexFeature(x,y,z+1)][4];
+                    auto fu = features[indexFeature(x,y+1,z+1)][0];
+                    auto u = features[indexFeature(x,y+1,z)][2];
+
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, fu.minimizer), color, normal);
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, fu.minimizer, u.minimizer), color, normal);
+                }else if(edgeId == 10){
+                    auto r = features[indexFeature(x+1,y,z)][11];
+                    auto rf = features[indexFeature(x+1,y,z+1)][8];
+                    auto f = features[indexFeature(x,y,z+1)][9];
+
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, rf.minimizer, r.minimizer), color, normal);
+                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, rf.minimizer), color, normal);
+
+                }
+            }
+        }
+
+        //another variant used with assoc array
+        /*foreach(ref edgeIdAndMinimizer; cell.byKeyValue){
             auto edgeId = edgeIdAndMinimizer.key;
             auto data = edgeIdAndMinimizer.value;
 
@@ -576,17 +624,39 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                 addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, rf.minimizer), color, normal);
 
             }
-        }
+        }*/
     }
 
+    StopWatch watch;
 
-    foreach(z; 0..size){
+    watch.start();
+
+    /*foreach(z; 0..size){
         foreach(y; 0..size){
             foreach(x; 0..size){
                 loadCell(x,y,z);
             }
         }
+    }*/
+
+    foreach(i; parallel(iota(0, (size-1) * (size-1) * (size-1) + 1))){
+        auto z = i / size / size;
+        auto y = i / size % size;
+        auto x = i % size;
+
+        loadCell(x,y,z);
     }
+
+    watch.stop();
+
+    ulong ms;
+    watch.peek().split!"msecs"(ms);
+
+    writeln("loading of cells took " ~ to!string(ms) ~ " ms");
+    stdout.flush();
+
+    watch.reset();
+    watch.start();
 
     foreach(z; 0..size-1){
         foreach(y; 0..size-1){
@@ -595,5 +665,20 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
             }
         }
     }
+
+   /* foreach(i; parallel(iota(0, (size-2) * (size-2) * (size-2) + 1))){
+        auto z = i / (size-1) / (size-1);
+        auto y = (i / (size-1)) % (size-1);
+        auto x = i % (size-1);
+
+        extactSurface(x,y,z);
+    }*/
+
+    watch.stop();
+
+
+    watch.peek().split!"msecs"(ms);
+    writeln("isosurface extraction took " ~ to!string(ms) ~ " ms");
+    stdout.flush();
 
 }
