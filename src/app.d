@@ -471,7 +471,7 @@ void runVoxelized(){
     auto offset = vec3!float(-2.0, -2.0, -2.0);
     writeln(offset);
     float a = 0.125F/2.0F;
-    size_t size = 128;
+    const size_t size = 128;
     size_t acc = 16;
 
 

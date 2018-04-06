@@ -209,6 +209,7 @@ extern (C++){
     }
 }
 
+//bindings (voxelized)
 extern (C){
 
     //TODO better noise handle (typed)
@@ -217,6 +218,9 @@ extern (C){
     void setFrequency(void* noise, FN_DECIMAL frequency);
     void setNoiseType(void* noise, FastNoise.NoiseType typee);
     @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
+
+
+    void setStackSize(size_t MB);
 }
 
 // =======================================================

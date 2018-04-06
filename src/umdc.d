@@ -469,26 +469,48 @@ Vector3!float sampleQEFBrute(const ref Cube!float cube, size_t n, const ref Arra
     return bestPoint;
 }
 
-
+//5623ms
+//vvv
+//489 + 2303 ~~ 2792ms //200% speed increase
 
 //TODO curently HermiteGrid is not used
 void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float color, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
 
+
+    //float[size + 1][size + 1][size + 1] densities; //TODO port this to stack(prob too big)
+    auto densities = Array!float();
+    densities.reserve((size + 1)*(size + 1)*(size + 1));
+    densities.length = (size + 1)*(size + 1)*(size + 1);
+
     alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer and normal
 
-    auto available = new ubyte[size * size * size * 12];
-    memset(available.ptr, 0, size * size * size * 12);
     auto features = Array!(CellData[12])(); //TODO does it auto initialize hashmap ?
     features.reserve(size * size * size);
-    features.length = size * size * size; //make sure we can access any feature
+    features.length = size * size * size; //make sure we can access any feature //TODO convert to static array
     //TODO switch to nogc hashmap or use arrays with O(1) access but more memory use as a tradeoff
     //TODO normals are duplicated !
+
+    /*auto edges = Array!(CellData)();
+    auto edgeCount = 3*(size + 1)*(size + 1)*size;
+    features.reserve(edgeCount);
+    features.length = edgeCount;*/
+
+
+    pragma(inline,true)
+    size_t indexDensity(size_t x, size_t y, size_t z){
+        return z * (size + 1) * (size + 1) + y * (size + 1) + x;
+    }
 
     pragma(inline,true)
     size_t indexFeature(size_t x, size_t y, size_t z){
         return z * size * size + y * size + x;
     }
+
+    /*pragma(inline, true) //3 * (n+1)^2 * n
+    size_t indexEdge(size_t x, size_t y, size_t z, size_t localEdgeId){//cell coordinates and local edge id
+
+    }*/
 
     pragma(inline,true)
     Cube!float cube(size_t x, size_t y, size_t z){//cube bounds of a cell in the grid
@@ -496,24 +518,37 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     }
 
     pragma(inline,true)
+    void loadDensity(size_t x, size_t y, size_t z){
+        auto p = offset + vec3!float(x * a, y * a, z * a);
+        densities[indexDensity(x,y,z)] = f(p);
+
+    }
+
+    pragma(inline,true)
     void loadCell(size_t x, size_t y, size_t z){
         auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
         auto bounds = cube(x,y,z);
-        float[8] densities;
 
         uint config = 0;
-        for(size_t i = 0; i < 8; ++i){
-            auto p = cellMin + cornerPoints[i] * a;
-            //writeln("den: " ~ to!string(f(p)) ~ " at: " ~ to!string(p));
-            //stdout.flush();
-            densities[i] = f(p);
-            if(densities[i] < 0.0){
-                config |= 1 << i;
-            }
-        }
 
-        //writeln("config: " ~ to!string(config));
-        //stdout.flush();
+        if(densities[indexDensity(x,y,z)] < 0.0)
+            config |= 1;
+        if(densities[indexDensity(x+1,y,z)] < 0.0)
+            config |= 2;
+        if(densities[indexDensity(x+1,y,z+1)] < 0.0)
+            config |= 4;
+        if(densities[indexDensity(x,y,z+1)] < 0.0)
+            config |= 8;
+
+        if(densities[indexDensity(x,y+1,z)] < 0.0)
+            config |= 16;
+        if(densities[indexDensity(x+1,y+1,z)] < 0.0)
+            config |= 32;
+        if(densities[indexDensity(x+1,y+1,z+1)] < 0.0)
+            config |= 64;
+        if(densities[indexDensity(x,y+1,z+1)] < 0.0)
+            config |= 128;
+
 
         if(config != 0 && config != 255){
 
@@ -549,7 +584,6 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                 foreach(edgeId; vertex){
                     features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
-                    available[z * size * size * 12 + y * size * 12 + x * 12 + edgeId] = 1;
                 }
 
 
@@ -561,36 +595,56 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     void extactSurface(size_t x, size_t y, size_t z){
         auto cell = features[indexFeature(x,y,z)]; //no need for reference store here as assoc array is a class
 
-        foreach(edgeId; 0..12){
-            if(available[z * size * size * 12 + y * size * 12 + x * 12 + edgeId]){
-                auto data = cell[edgeId];
-                auto normal = data.normal;
 
-                if(edgeId == 5){
-                    auto r = features[indexFeature(x+1,y,z)][7];
-                    auto ru = features[indexFeature(x+1,y+1,z)][3];
-                    auto u = features[indexFeature(x,y+1,z)][1];
+        auto d2 = densities[indexDensity(x+1,y,z+1)];
+        auto d5 = densities[indexDensity(x+1,y+1,z)];
+        auto d6 = densities[indexDensity(x+1,y+1,z+1)];
+        auto d7 = densities[indexDensity(x,y+1,z+1)];
+
+        uint edgeId = -1;
+
+        if(!isConstSign(d5,d6)){ //edgeId = 5
+            edgeId = 5;
+
+            auto data = cell[edgeId];
+            auto normal = data.normal;
+
+            auto r = features[indexFeature(x+1,y,z)][7];
+            auto ru = features[indexFeature(x+1,y+1,z)][3];
+            auto u = features[indexFeature(x,y+1,z)][1];
 
 
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, r.minimizer, ru.minimizer), color, normal);
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, ru.minimizer, u.minimizer), color, normal);
-                }else if(edgeId == 6){
-                    auto f = features[indexFeature(x,y,z+1)][4];
-                    auto fu = features[indexFeature(x,y+1,z+1)][0];
-                    auto u = features[indexFeature(x,y+1,z)][2];
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, r.minimizer, ru.minimizer), color, normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, ru.minimizer, u.minimizer), color, normal);
+        }
 
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, fu.minimizer), color, normal);
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, fu.minimizer, u.minimizer), color, normal);
-                }else if(edgeId == 10){
-                    auto r = features[indexFeature(x+1,y,z)][11];
-                    auto rf = features[indexFeature(x+1,y,z+1)][8];
-                    auto f = features[indexFeature(x,y,z+1)][9];
 
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, rf.minimizer, r.minimizer), color, normal);
-                    addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, rf.minimizer), color, normal);
+        if(!isConstSign(d7,d6)){ //edgeId = 6
+            edgeId = 6;
 
-                }
-            }
+            auto data = cell[edgeId];
+            auto normal = data.normal;
+
+            auto f = features[indexFeature(x,y,z+1)][4];
+            auto fu = features[indexFeature(x,y+1,z+1)][0];
+            auto u = features[indexFeature(x,y+1,z)][2];
+
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, fu.minimizer), color, normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, fu.minimizer, u.minimizer), color, normal);
+        }
+
+        if(!isConstSign(d2,d6)){ //edgeId = 10
+            edgeId = 10;
+
+            auto data = cell[edgeId];
+            auto normal = data.normal;
+
+            auto r = features[indexFeature(x+1,y,z)][11];
+            auto rf = features[indexFeature(x+1,y,z+1)][8];
+            auto f = features[indexFeature(x,y,z+1)][9];
+
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, rf.minimizer, r.minimizer), color, normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, rf.minimizer), color, normal);
         }
 
         //another variant used with assoc array
@@ -629,6 +683,26 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
     StopWatch watch;
 
+
+    watch.start();
+
+    foreach(i; parallel(iota(0, size * size * size ))){
+        auto z = i / (size+1) / (size+1);
+        auto y = i / (size+1) % (size+1);
+        auto x = i % (size+1);
+
+        loadDensity(x,y,z);
+    }
+
+    watch.stop();
+
+    ulong ms;
+    watch.peek().split!"msecs"(ms);
+
+    writeln("loading of densities took " ~ to!string(ms) ~ " ms");
+    stdout.flush();
+
+    watch.reset();
     watch.start();
 
     /*foreach(z; 0..size){
@@ -649,7 +723,6 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
     watch.stop();
 
-    ulong ms;
     watch.peek().split!"msecs"(ms);
 
     writeln("loading of cells took " ~ to!string(ms) ~ " ms");
