@@ -269,15 +269,16 @@ void runVoxelized(){
 
     // ========================= UMDC ==============================
     auto noise = allocFastNoise();
-    setFrequency(noise, 4.0);
-    setNoiseType(noise, FastNoise.NoiseType.Perlin);
+    setFrequency(noise, 26.0);
+
+    setNoiseType(noise, FastNoise.NoiseType.PerlinFractal);
 
     struct DenFn3{
         void* noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
 
         @nogc float opCall(Vector3!float v){
 
-            return getValue(noise, v.x / 1.0F, v.y/1.0F, v.z/1.0F);
+            return getValue(noise, v.x / 5.0F, v.y/5.0F, v.z/5.0F);
         }
     }
 
@@ -289,19 +290,28 @@ void runVoxelized(){
         }
     }
 
+     struct DenSphereDisplacement{
+        Sphere!float sph;
+
+        @nogc float opCall(Vector3!float v){
+            float disp = (getValue(noise, v.x/20,v.y/20,v.z/20)+2)/4;
+            return (sph.center - v).dot(sph.center - v) - sph.rad * sph.rad * disp;
+        }
+    }
+
     DenFn3 f = {noise};
     auto offset = vec3!float(-2.0, -2.0, -2.0);
     writeln(offset);
     float a = 0.125F;
-    size_t size = 32;
-    size_t acc = 16;
+    size_t size = 64;
+    size_t acc = 8;
 
     auto color = brown;
 
 
-    DenSphere sph = {Sphere!float(vec3!float(0,0,0), 2)};
+    DenSphereDisplacement sph = {Sphere!float(vec3!float(0,0,0), 2)};
 
-    umdc.extract!(DenSphere)(sph, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+    umdc.extract!(DenSphereDisplacement)(sph, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
 
     // ==============================================================
@@ -309,7 +319,7 @@ void runVoxelized(){
 
 
 	shaders["lighting"].enable();
-	shaders["lighting"].setFloat3("pointLight.pos", vecS!([0.0F,8.0F,0.0F]));
+	shaders["lighting"].setFloat3("pointLight.pos", vecS!([4.0F,4.0F,4.0F]));
 	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([15.0, 15.0, 15.0]));
 
 
