@@ -8,3 +8,7 @@ __test__*__
 voxelized3d
 .idea/
 voxelized3d.iml
+bindings/cmake-build-debug/
+bindings/cmake-build-release/
+dub.selections.json
+voxelized3d-test-library
