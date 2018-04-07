@@ -399,7 +399,7 @@ struct HermiteGrid{
 Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
     return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
                           f(Vector3!float([point.x, point.y + eps, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
-                          f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]);
+                          f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]).normalize();
 }
 
 
@@ -530,29 +530,46 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
         auto bounds = cube(x,y,z);
 
         uint config = 0;
+        size_t num = 0; //TODO remove
 
-        if(densities[indexDensity(x,y,z)] < 0.0)
+        if(densities[indexDensity(x,y,z)] < 0.0){
             config |= 1;
-        if(densities[indexDensity(x+1,y,z)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x+1,y,z)] < 0.0){
             config |= 2;
-        if(densities[indexDensity(x+1,y,z+1)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x+1,y,z+1)] < 0.0){
             config |= 4;
-        if(densities[indexDensity(x,y,z+1)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x,y,z+1)] < 0.0){
             config |= 8;
+            num += 1;
+        }
 
-        if(densities[indexDensity(x,y+1,z)] < 0.0)
+        if(densities[indexDensity(x,y+1,z)] < 0.0){
             config |= 16;
-        if(densities[indexDensity(x+1,y+1,z)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x+1,y+1,z)] < 0.0){
             config |= 32;
-        if(densities[indexDensity(x+1,y+1,z+1)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x+1,y+1,z+1)] < 0.0){
             config |= 64;
-        if(densities[indexDensity(x,y+1,z+1)] < 0.0)
+            num += 1;
+        }
+        if(densities[indexDensity(x,y+1,z+1)] < 0.0){
             config |= 128;
+            num += 1;
+        }
 
 
         if(config != 0 && config != 255){
 
-            addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
+            if(num == 1)addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
 
             auto vertices = whichEdgesAreSigned(config);
 
@@ -567,7 +584,10 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
                     auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
-                    auto normal = calculateNormal!(DenFn3)(intersection, a/8.0, f); //TODO test this `eps`
+                    auto normal = calculateNormal!(DenFn3)(intersection, a/256.0, f); //TODO test this `eps`
+
+                    if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection
+                    if(x == 45 && y == 54 && z == 69)addLine3Color(renderLines, Line!(float,3)(intersection, intersection + normal * a / 3.0F), Vector3!float([0,0,1]));
 
                     auto plane = Plane!float(intersection, normal);
 
@@ -582,7 +602,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                 //auto minimizer = bounds.center;
                 auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
 
-                addCubeBounds(renderLines, Cube!float(minimizer, a/10.0F), Vector3!float([1,1,0]));//debug minimizer
+                if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
 
                 foreach(edgeId; vertex){
                     features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;

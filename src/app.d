@@ -607,6 +607,21 @@ void runVoxelized(){
 		sw.reset();
 		sw.start();
 
+
+		//debug bounds
+		if(glfwGetKey(win, GLFW_KEY_Z) == GLFW_PRESS){
+		    auto bmin = bounds.center - vec3!float(bounds.extent,bounds.extent,bounds.extent);
+            auto dp = camera.pos - bmin;
+            auto x = cast(size_t)(dp.x / a) % size;
+            auto y = cast(size_t)(dp.y / a) % size;
+            auto z = cast(size_t)(dp.z / a) % size;
+
+            writeln("x="~to!string(x)~",y="~to!string(y)~",z="~to!string(z));
+            stdout.flush();
+		}
+
+		//===
+
 		updateWindowInfo(winInfo);
 		glfwSwapBuffers(win);
 		glfwPollEvents();

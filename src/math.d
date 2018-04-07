@@ -144,6 +144,17 @@ bool areEqual(T, size_t N, size_t M)(const ref Matrix!(T,N,M) a, const ref Matri
     return true;
 }
 
+Vector!(T,N) average(T, size_t N)(const ref Array!(Matrix!(T,N,1)) vectors){
+    Vector!(T,N) result = zero!(T,N,1);
+
+    foreach(ref v; vectors[]){
+        result = result + v;
+    }
+
+    return result / vectors.length;
+
+}
+
 void gramSchmidt(T, size_t N, size_t M)(const ref Matrix!(T,N,M) input, out Matrix!(T,N,M) output) if(M <= N){
     for(size_t i = 0; i < M; ++i){
 
@@ -173,6 +184,22 @@ void gramSchmidt(T, size_t N, size_t M)(const ref Matrix!(T,N,M) input, out Matr
 
         for(size_t j = 0; j < N; ++j){
             output[j,i] /= norm_;
+        }
+    }
+}
+
+void qr(T, size_t N, size_t M)(const ref Matrix!(T,N,M) A, out Matrix!(T,N,M) Q, out Matrix!(T,M,M) R) if(M <= N){
+    gramSchmidt(A, Q);
+
+    for(size_t i = 0; i < M; ++i){  //calculate elements of upper triangular matrix
+        for(size_t j = i; j < M; ++j){
+            R[i,j] = Q.column(i).dot(A.column(j));
+        }
+    }
+
+    for(size_t i = 0; i < M; ++i){  //zero out all elements below main diagonal
+        for(size_t j = 0; j < i; ++j){
+            R[i,j] = traits.zero!T();
         }
     }
 }

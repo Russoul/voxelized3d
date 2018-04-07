@@ -74,7 +74,29 @@ unittest{ //matrix
     assert(areEqual(res1, identity2, 0.0001F)); //for matrix Q with orthonormal columns: transpose(Q) * Q == I
 
 
-    //assert(input == output);
+    void qrTest(){
+        auto A = matS!([
+            [12.0F, -51.0F, 4.0F],
+            [6.0F, 167.0F, -68.0F],
+            [-4.0F, 24.0F, -41.0F]
+        ]);
+
+        auto Q = zero!(float,3,3);
+        auto R = zero!(float,3,3);
+
+        qr(A,Q,R);
+
+        writeln(Q);
+        writeln(R);
+
+        auto RExact = matS!([[14.0F, 21.0F, -14.0F], [0.0F, 175.0F, -70.0F], [0.0F, 0.0F, 35.0F]]);
+
+        assert(areEqual(R, RExact, 0.001F));
+    }
+
+    qrTest();
+
+
 
 
 }
