@@ -182,8 +182,8 @@ auto cross(T)(Matrix!(T,3,1) a, Matrix!(T,3,1) b){
 }
 
 pragma(inline,true)
-auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
-	T[N*M] res;
+Matrix!(T,M,N) transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
+	T[M*N] res;
 
 	for(size_t i = 0; i < N; ++i){
 		for(size_t j = 0; j < M; ++j){
@@ -191,7 +191,7 @@ auto transpose(T, size_t N, size_t M)(Matrix!(T,N,M) a){
 		}
 	}
 
-	return Matrix!(T,N,M)(res);
+	return Matrix!(T,M,N)(res);
 }
 
 pragma(inline,true)

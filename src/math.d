@@ -1,9 +1,13 @@
 module math;
 
+import std.math;
+import std.container.array;
+import std.stdio;
+
 import util;
 import traits;
 import matrix;
-import std.math;
+
 
 
 struct Triangle(T, size_t N){
@@ -97,4 +101,78 @@ Matrix4!(float) rotation(Vector3!float u, float theta){
         u.z * u.x * (1.0F - cosTheta) - u.y * sinTheta, u.z * u.y * (1.0F - cosTheta) + u.x * sinTheta, cosTheta + u.z * u.z * (1.0F - cosTheta), 0.0,
         0.0F, 0.0F, 0.0F, 1.0F
     ]);
+}
+
+//projection operator (v is projected on u)
+void proj(ref Array!float v, ref Array!float u, out Array!float res){
+
+    float vu = 0;
+    float uu = 0;
+
+    for(size_t i = 0; i < v.length; ++i){
+        vu += v[i] * u[i];
+        uu += u[i] * u[i];
+    }
+
+    auto k = vu / uu;
+
+    for(size_t i = 0; i < v.length; ++i){
+        res[i] = u[i] * k;
+    }
+}
+
+
+void proj(T, size_t N)(const ref Matrix!(T,N,1) v, const ref Matrix!(T,N,1) u, out Matrix!(T,N,1) res){
+    auto vu = dot(v,u);
+    auto uu = dot(u,u);
+    auto k = vu/uu;
+
+    for(size_t i = 0; i < N; ++i){
+        res[i] = u[i] * k;
+    }
+}
+
+
+bool areEqual(T, size_t N, size_t M)(const ref Matrix!(T,N,M) a, const ref Matrix!(T,N,M) b, T eps){
+    foreach(i; 0..N){
+        foreach(j; 0..M){
+            if( abs(a[i,j] - b[i,j]) > eps )
+                return false;
+        }
+    }
+
+    return true;
+}
+
+void gramSchmidt(T, size_t N, size_t M)(const ref Matrix!(T,N,M) input, out Matrix!(T,N,M) output) if(M <= N){
+    for(size_t i = 0; i < M; ++i){
+
+        auto iC = input.column(i);
+        Vector!(T,N) difference = iC;
+
+        T[N] tempAr;
+        Vector!(T,N) temp = {tempAr};
+
+
+        for(size_t j = 0; j < i; ++j){
+            auto oC = output.column(j);
+            proj(iC, oC, temp);
+
+            difference = difference - temp;
+        }
+
+        for(size_t k = 0; k < N; ++k){
+            output[k,i] = difference[k];
+        }
+    }
+
+    for(size_t i = 0; i < M; ++i){
+        auto column = output.column(i);
+
+        auto norm_ = column.norm();
+
+        for(size_t j = 0; j < N; ++j){
+            output[j,i] /= norm_;
+        }
+    }
 }

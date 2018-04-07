@@ -94,6 +94,7 @@ extern (C) bool glfwWindowShouldClose(GlfwWindow* win);
 extern (C) void glfwSwapBuffers(GlfwWindow* win);
 extern (C) void glfwPollEvents();
 extern (C) size_t glfwGetKey(const (GlfwWindow*) win, int key);
+extern (C) int glfwGetMouseButton(const (GlfwWindow*) win, int button);
 extern (C) void glfwSetWindowShouldClose(GlfwWindow* win, bool shouldClose);
 extern (C) void glfwSetInputMode(GlfwWindow* win, size_t mode, int value);
 extern (C) void glfwGetCursorPos(GlfwWindow* win, double* x, double* y);

@@ -53,6 +53,10 @@ void processInput(GlfwWindow* win, ref Camera camera, ulong frameDeltaNs){
 
     float gain = unitPerSecond * cast(float)deltaSec;
 
+    if(glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS){
+        gain *= 0.01F;
+    }
+
 
     auto right = camera.look.cross(camera.up);
 
@@ -311,7 +315,7 @@ void runVoxelized(){
             this.noise = noise;
         }
 
-        float opCall(Vector3!float v){
+        @nogc float opCall(Vector3!float v){
 
             auto den = (octaveNoise(noise, 8, 0.95F, v.x/4.0F, 0, v.z/4.0F) + 1)/2 * cube.extent * 2;
             return (v.y - (cube.center.y - cube.extent)) - den;
@@ -486,12 +490,23 @@ void runVoxelized(){
     DenSphereDisplacement sph = {Sphere!float(vec3!float(0,0,0), 2)};
 
     auto cube = DenCube(Cube!float(vec3!float(1.0,1.0,1.0), 0.5));
-    auto sizee = 0.1F;
-    auto obb = DenOBB(OBB!float(vec3!float(-1.0,1.0,1.0), vec3!float(1.0F/sqrt(2.0F), 0, 1.0F/sqrt(2.0F)), vec3!float(0,1,0), vec3!float(sizee,sizee,sizee)));
-    DenUnion!(DenSphereDisplacement, DenCube) r = {sph, cube};
+    auto sizee = 0.8F;
+
+    auto dirs = matS!([
+        [1.0F, 1.0F],
+        [-0.5F,1.0F],
+        [-0.2F,1.0F]
+    ]);
+
+    auto resDirs = dirs;
+
+    gramSchmidt(dirs, resDirs);
+
+    auto obb = DenOBB(OBB!float(vec3!float(2.0,2.0,2.0), resDirs.column(0), resDirs.column(1), vec3!float(sizee,sizee,sizee)));
+    DenUnion!(typeof(f), typeof(obb)) r = {f, obb};
     DenUnion!(typeof(r), DenOBB) q = {r, obb};
 
-    umdc.extract!(typeof(f))(f, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+    umdc.extract!(typeof(obb))(obb, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
 
     freeFastNoise(noise);
@@ -516,7 +531,7 @@ void runVoxelized(){
 			[0.0F, 0.0F, 0.0F, 1.0F]
 		]);
 
-		auto persp = perspectiveProjection(90.0F, aspect, 0.1F, 16.0F);
+		auto persp = perspectiveProjection(90.0F, aspect, 0.01F, 16.0F);
 		auto view = viewDir(camera.pos, camera.look, camera.up);
 		auto tr = translation(Vector3!float([0.5, 0,0]));
 
@@ -538,7 +553,7 @@ void runVoxelized(){
     			[0.0F, 0.0F, 0.0F, 1.0F]
     		]);
 
-    		auto persp = perspectiveProjection(90.0F, aspect, 0.1F, 16.0F);
+    		auto persp = perspectiveProjection(90.0F, aspect, 0.01F, 16.0F);
     		auto view = viewDir(camera.pos, camera.look, camera.up);
     		auto tr = translation(Vector3!float([0.5, 0,0]));
 

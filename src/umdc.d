@@ -552,7 +552,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
         if(config != 0 && config != 255){
 
-            //addCubeBounds(renderLines, bounds, Vector3!float([1,1,1]));
+            addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
 
             auto vertices = whichEdgesAreSigned(config);
 
@@ -567,7 +567,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
                     auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
-                    auto normal = calculateNormal!(DenFn3)(intersection, a/2.0, f); //TODO test this `eps`
+                    auto normal = calculateNormal!(DenFn3)(intersection, a/8.0, f); //TODO test this `eps`
 
                     auto plane = Plane!float(intersection, normal);
 
@@ -581,6 +581,8 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                 //auto minimizer = bounds.center;
                 auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
+
+                addCubeBounds(renderLines, Cube!float(minimizer, a/10.0F), Vector3!float([1,1,0]));//debug minimizer
 
                 foreach(edgeId; vertex){
                     features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;
@@ -705,21 +707,21 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     watch.reset();
     watch.start();
 
-    /*foreach(z; 0..size){
+    foreach(z; 0..size){
         foreach(y; 0..size){
             foreach(x; 0..size){
                 loadCell(x,y,z);
             }
         }
-    }*/
+    }
 
-    foreach(i; parallel(iota(0, (size-1) * (size-1) * (size-1) + 1))){
+    /*foreach(i; parallel(iota(0, (size-1) * (size-1) * (size-1) + 1))){
         auto z = i / size / size;
         auto y = i / size % size;
         auto x = i % size;
 
         loadCell(x,y,z);
-    }
+    }*/
 
     watch.stop();
 
