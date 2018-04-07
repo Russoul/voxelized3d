@@ -6,9 +6,9 @@
 	"description": "3D voxel egnine",
 	"copyright": "Copyright © 2018, russoul",
 	"license": "MIT",
-	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "voxelizedBindings"],
+	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "voxelizedBindings", "blas", "lapack", "lapacke"],
 	"dependencies": {
-
+		"lubeck": "~>0.0.6-beta"
 	}
 
 }

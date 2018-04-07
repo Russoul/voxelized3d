@@ -469,6 +469,39 @@ Vector3!float sampleQEFBrute(const ref Cube!float cube, size_t n, const ref Arra
     return bestPoint;
 }
 
+//solves QEF as written in paper: http://www.cs.wustl.edu/~taoju/research/dualContour.pdf
+Vector3!float solveQEF(const ref Array!(Plane!float) planes){
+    auto n = planes.length;
+    auto Ab = Array!float();
+    Ab.reserve(n * 4);
+    Ab.length = n * 4;
+
+    import mir.ndslice: magic, repeat, as, slice;
+    import lubeck: mtimes, svd, qrDecomp, pinv;
+    import mir.ndslice.slice: sliced;
+
+    for(size_t i = 0; i < n; ++i){
+        Ab[4*i]   = planes[i].normal.x;
+        Ab[4*i+1] = planes[i].normal.y;
+        Ab[4*i+2] = planes[i].normal.z;
+
+        Ab[4*i+3] = planes[i].normal.dot(planes[i].point);
+    }
+
+    auto AbSlice = (&Ab[0]).sliced(n,4);
+
+    auto qr = qrDecomp(AbSlice);
+
+    auto Af = Array!float();
+    Af.reserve(9);
+    Af.length = 9;
+
+
+
+    return planes[0].normal;//TODO
+
+}
+
 //5623ms
 //vvv
 //489 + 2303 ~~ 2792ms //200% speed increase
