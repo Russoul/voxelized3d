@@ -7,6 +7,8 @@ depends on [FastNoise](https://github.com/Auburns/FastNoise), [GLFW3](http://www
 
 ![sharp features are finally preserved !](imgs/sharp_features.png)
 
+![difference](imgs/difference.png)
+
 ![some noise](imgs/noise1.png)
 
 ![noise terrain](imgs/noise_terrain.png)

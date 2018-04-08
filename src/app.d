@@ -305,6 +305,18 @@ void runVoxelized(){
         }
     }
 
+    struct DenDifference(alias Den1, alias Den2){
+        Den1 f1;
+        Den2 f2;
+
+        @nogc float opCall(Vector3!float v){
+            auto d1 = f1(v);
+            auto d2 = f2(v);
+
+            return max(d1, -d2);
+        }
+    }
+
     struct DenFn3{
         void* noise;//TODO problem here, probably should craate a simple C wrapper to simplify things
 
@@ -504,7 +516,7 @@ void runVoxelized(){
 
     auto obb = DenOBB(OBB!float(vec3!float(2.0,2.0,2.0), resDirs.column(0), resDirs.column(1), vec3!float(sizee,sizee,sizee)));
     DenUnion!(typeof(f), typeof(obb)) r = {f, obb};
-    DenUnion!(typeof(r), DenOBB) q = {r, obb};
+    DenDifference!(typeof(r), DenOBB) q = {r, obb};
 
     umdc.extract!(typeof(q))(q, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
