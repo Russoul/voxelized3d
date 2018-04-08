@@ -271,3 +271,23 @@ Vector3!T vec3(T)(T x, T y, T z){
     return Vector3!T([x,y,z]);
 }
 
+pragma(inline,true)
+Matrix3!T mat3(T)(T a11, T a12, T a13,
+                  T a21, T a22, T a23,
+                  T a31, T a32, T a33){
+    return Matrix!(T,3,3)([
+        a11, a12, a13,
+        a21, a22, a23,
+        a31, a32, a33
+    ]);
+}
+
+pragma(inline,true)
+Matrix3!T diag3(T)(T a11, T a22, T a33){
+    auto z = traits.zero!T();
+    return Matrix!(T,3,3)([
+            a11, z, z,
+            z, a22, z,
+            z, z,  a33
+        ]);
+}

@@ -8,7 +8,8 @@
 	"license": "MIT",
 	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "voxelizedBindings", "blas", "lapack", "lapacke"],
 	"dependencies": {
-		"lubeck": "~>0.0.6-beta"
-	}
+	},
+	"dflags": ["-gc" ],
+	"lflags": ["-export-dynamic"]
 
 }

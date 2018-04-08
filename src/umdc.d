@@ -469,36 +469,207 @@ Vector3!float sampleQEFBrute(const ref Cube!float cube, size_t n, const ref Arra
     return bestPoint;
 }
 
+
+Vector3!float sampleQefBrute2(const ref Array!(Plane!float) planes, Vector3!float start){
+
+    foreach(j; 0..1000){
+        auto d = zero!(float,3,1);
+
+        foreach(ref plane; planes){
+                d = d + (start - plane.point);
+        }
+
+        d = d / planes.length;
+
+        start = start + d * 0.7F;
+    }
+
+    return start;
+
+
+
+}
+
 //solves QEF as written in paper: http://www.cs.wustl.edu/~taoju/research/dualContour.pdf
-Vector3!float solveQEF(const ref Array!(Plane!float) planes){
+Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centroid){ //TODO uses GC !
     auto n = planes.length;
     auto Ab = Array!float();
     Ab.reserve(n * 4);
     Ab.length = n * 4;
 
-    import mir.ndslice: magic, repeat, as, slice;
-    import lubeck: mtimes, svd, qrDecomp, pinv;
-    import mir.ndslice.slice: sliced;
+    import lapacke;
 
     for(size_t i = 0; i < n; ++i){
         Ab[4*i]   = planes[i].normal.x;
         Ab[4*i+1] = planes[i].normal.y;
         Ab[4*i+2] = planes[i].normal.z;
 
-        Ab[4*i+3] = planes[i].normal.dot(planes[i].point);
+        Ab[4*i+3] = planes[i].normal.dot(planes[i].point - centroid);
     }
 
-    auto AbSlice = (&Ab[0]).sliced(n,4);
 
-    auto qr = qrDecomp(AbSlice);
+    auto original = Ab.array;
 
-    auto Af = Array!float();
-    Af.reserve(9);
-    Af.length = 9;
+    float[4] tau;
+
+    auto err1 = LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
+
+    writeln(err1);
+
+
+    auto Af = zero!(float,3,3)();
+    for(size_t i = 0; i < 3; ++i){
+        for(size_t j = i; j < 3; ++j){
+            Af[i,j] = Ab[4*i + j];
+        }
+    }
+
+    auto bf = vec3!float(Ab[3], Ab[7], Ab[11]);
+
+    auto minimizer1 = zero!(float,3,1);
+
+    solveRxb(Af, bf, minimizer1);
 
 
 
-    return planes[0].normal;//TODO
+
+
+    auto U = zero!(float,3,3);
+    auto VT = U;
+
+    auto S = zero!(float,3,1);
+
+    float[2] cache;
+
+    auto AfCopy = Af;
+
+    auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, Af.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+     writeln(res);
+
+
+    writeln(original);
+    writeln(AfCopy);
+    writeln(U);
+    writeln(VT.transpose());
+    writeln(S);
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = diag3(S[0], S[1], S[2]);
+
+    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
+
+    auto minimizer = mult(pinv, bf);
+
+
+
+    return minimizer;//TODO
+
+}
+
+
+Vector3!float solveQEF2(const ref Array!(Plane!float) planes, const ref Vector3!float meanPoint){ //TODO uses GC !
+    auto n = planes.length;
+    auto A = Array!float();
+    A.reserve(n * 3);
+    A.length = n * 3;
+
+    auto b = Array!float();
+    b.reserve(n);
+    b.length = n;
+
+    import lapacke;
+
+    for(size_t i = 0; i < n; ++i){
+        A[3*i]   = planes[i].normal.x;
+        A[3*i+1] = planes[i].normal.y;
+        A[3*i+2] = planes[i].normal.z;
+
+        b[i] = planes[i].normal.dot(planes[i].point - meanPoint);
+    }
+
+    writeln("A");
+    writeln(A.array);
+    writeln("b");
+    writeln(b.array);
+
+
+
+    auto U = new float[n*n];
+    auto VT = new float[3*3];
+    auto S = zero!(float,3,1);
+
+
+    auto UT = new float[n*n];
+    auto V = new float[3*3];
+
+    float[2] cache;
+
+    auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', n, 3, &A[0], 3, S.array.ptr, U.ptr, n, VT.ptr, 3, cache.ptr);
+    writeln(res);
+
+
+    writeln("U");
+    writeln(U);
+    writeln("VT");
+    writeln(VT);
+
+    writeln("S");
+    writeln(S);
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = new float[3 * n];
+    memset(Sm.ptr, 0, float.sizeof * 3 * n);
+    Sm[0] = S[0];
+    Sm[4] = S[1];
+    Sm[8] = S[2];
+
+    writeln("Sm");
+    writeln(Sm);
+
+    math.transpose(U.ptr, n,n, UT.ptr);
+    math.transpose(VT.ptr,3,3, V.ptr);
+
+    writeln("UT");
+    writeln(UT);
+    writeln("V");
+    writeln(V);
+
+
+
+    auto pinv1 = new float[3*n]; //V * S * UT
+    auto pinv = new float[3*n];
+
+    mult(V.ptr, Sm.ptr, 3, 3, n, pinv1.ptr);
+    mult(pinv1.ptr, UT.ptr, 3,n,n, pinv.ptr);
+
+
+    writeln("pinv");
+    writeln(pinv);
+
+
+
+    auto minimizer = zero!(float,3,1);
+
+    mult(pinv.ptr, &b[0], 3,n,1, minimizer.array.ptr);
+
+    writeln(minimizer);
+
+
+    return minimizer;//TODO
 
 }
 
@@ -602,12 +773,13 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
         if(config != 0 && config != 255){
 
-            if(num == 1)addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
+
 
             auto vertices = whichEdgesAreSigned(config);
 
             foreach(ref vertex; vertices){
                 auto curPlanes = Array!(Plane!float)();
+                auto meanPoint = zero!(float,3,1);
                 curPlanes.reserve(4); //TODO find the most efficient number
 
                 foreach(edgeId; vertex){
@@ -617,14 +789,15 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
                     auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
-                    auto normal = calculateNormal!(DenFn3)(intersection, a/256.0, f); //TODO test this `eps`
+                    auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO test this `eps`
 
-                    if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection
-                    if(x == 45 && y == 54 && z == 69)addLine3Color(renderLines, Line!(float,3)(intersection, intersection + normal * a / 3.0F), Vector3!float([0,0,1]));
+                    //if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection
+                    //if(x == 45 && y == 54 && z == 69)addLine3Color(renderLines, Line!(float,3)(intersection, intersection + normal * a / 3.0F), Vector3!float([0,0,1]));
 
                     auto plane = Plane!float(intersection, normal);
 
                     curPlanes.insertBack(plane);
+                    meanPoint = meanPoint + intersection;
 
 
                     CellData cellData;
@@ -632,10 +805,18 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                     features[indexFeature(x,y,z)][edgeId] = cellData;
                 }
 
-                //auto minimizer = bounds.center;
-                auto minimizer = sampleQEFBrute(bounds, accuracy, curPlanes);
+                meanPoint = meanPoint / curPlanes.length;
 
-                if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
+                //auto minimizer = bounds.center;
+                //auto minimizer = sampleQefBrute2(curPlanes, meanPoint);
+                auto minimizer = solveQEF(curPlanes, meanPoint) + meanPoint;
+
+                if(!checkPointInsideCube(minimizer, bounds)){
+                    //addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
+                    addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
+                }
+
+
 
                 foreach(edgeId; vertex){
                     features[indexFeature(x,y,z)][edgeId].minimizer = minimizer;

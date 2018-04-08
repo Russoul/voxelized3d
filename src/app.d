@@ -506,7 +506,7 @@ void runVoxelized(){
     DenUnion!(typeof(f), typeof(obb)) r = {f, obb};
     DenUnion!(typeof(r), DenOBB) q = {r, obb};
 
-    umdc.extract!(typeof(obb))(obb, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+    umdc.extract!(typeof(q))(q, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
 
     freeFastNoise(noise);

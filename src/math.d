@@ -3,6 +3,7 @@ module math;
 import std.math;
 import std.container.array;
 import std.stdio;
+import std.conv;
 
 import util;
 import traits;
@@ -74,10 +75,10 @@ Matrix4!(float) viewDir(Vector3!float pos, Vector3!float look, Vector3!float up)
     auto xa = up.cross(za);
     auto ya = za.cross(xa);
 
-    return Matrix4!float([xa.x, ya.x, za.x, 0.0F,
+    return matrix.transpose(Matrix4!float([xa.x, ya.x, za.x, 0.0F,
                    xa.y, ya.y, za.y, 0.0F,
                    xa.z, ya.z, za.z, 0.0F,
-                   -xa.dot(pos), -ya.dot(pos), -za.dot(pos), 1.0F]).transpose();
+                   -xa.dot(pos), -ya.dot(pos), -za.dot(pos), 1.0F]));
 }
 
 
@@ -144,6 +145,35 @@ bool areEqual(T, size_t N, size_t M)(const ref Matrix!(T,N,M) a, const ref Matri
     return true;
 }
 
+
+pragma(inline, true)
+private size_t indexMatrix(size_t colCount, size_t i, size_t j){
+    return i * colCount + j;
+}
+
+void transpose(T)(T* A, size_t n, size_t m, T* AT){
+    foreach(i; 0..m){
+        foreach(j; 0..n){
+            AT[indexMatrix(n, i, j)] = A[indexMatrix(m, j, i)];
+
+        }
+    }
+}
+
+//A = aij[n * m]; B = bij[m * k]; C = cij[n*k];
+void mult(T)(T* A, T* B, size_t n, size_t m, size_t k, T* C){
+    foreach(i; 0..n){
+        foreach(j; 0..k){
+            T cij = traits.zero!T();
+            foreach(l; 0..m){
+                cij += A[indexMatrix(m, i, l)] * B[indexMatrix(k, l, j)];
+            }
+
+            C[indexMatrix(k, i, j)] = cij;
+        }
+    }
+}
+
 Vector!(T,N) average(T, size_t N)(const ref Array!(Matrix!(T,N,1)) vectors){
     Vector!(T,N) result = zero!(T,N,1);
 
@@ -202,4 +232,24 @@ void qr(T, size_t N, size_t M)(const ref Matrix!(T,N,M) A, out Matrix!(T,N,M) Q,
             R[i,j] = traits.zero!T();
         }
     }
+}
+
+
+//solve linear system: Rx = b where R is n * n upper triangular matrix (just back substitute)
+void solveRxb(T, size_t N)(const ref Matrix!(T,N,N) R, const ref Matrix!(T,N,1) b, out Matrix!(T,N,1) x){
+    for(int i = N - 1; i >= 0; --i){ //here `i` must be SIGNED intergral number !
+        T sum = traits.zero!T();
+        for(size_t j = i + 1; j < N; ++j){
+            sum += R[i,j] * x[j];
+        }
+
+        x[i] = (b[i] - sum) / R[i,i];
+    }
+}
+
+
+bool checkPointInsideCube(const ref Vector3!float point, const ref Cube!float cube){
+    return point.x < cube.center.x + cube.extent && point.x > cube.center.x - cube.extent &&
+    point.y < cube.center.y + cube.extent && point.y > cube.center.y - cube.extent &&
+    point.z < cube.center.z + cube.extent && point.z > cube.center.z - cube.extent;
 }

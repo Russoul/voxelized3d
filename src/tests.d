@@ -5,11 +5,6 @@ import std.math;
 import std.container.array;
 
 
-import mir.ndslice: magic, repeat, as, slice;
-import lubeck: mtimes;
-import mir.ndslice.slice: sliced;
-import lubeck: svd;
-
 import matrix;
 import math;
 import util;
@@ -95,38 +90,122 @@ unittest{ //matrix
         auto RExact = matS!([[14.0F, 21.0F, -14.0F], [0.0F, 175.0F, -70.0F], [0.0F, 0.0F, 35.0F]]);
 
         assert(areEqual(R, RExact, 0.001F));
+
+        import lapacke;
+
+
+        float[3] tau;
+
+        LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, 3, 3, A.array.ptr, 3, tau.ptr);
+
+        writeln("lapacke qr:");
+        writeln(A);
     }
 
     qrTest();
 
 
-    void lubeck()
-    {
-        auto n = 5;
-        // Magic Square
-        auto matrix = n.magic.as!double.slice;
-        // [1 1 1 1 1]
-        auto vec = 1.repeat(n).as!double.slice;
-        // Uses CBLAS for multiplication
-        matrix.mtimes(vec).writeln;
-        matrix.mtimes(matrix).writeln;
+    void linearSystemTest(){
+        auto A = matS!([
+            [1.0F, 2.0F, 3.0F],
+            [0.0F, 4.0F, 7.0F],
+            [0.0F, 0.0F, 11.0F]
+        ]);
 
-        auto a =  [
-             7.52,  -1.10,  -7.95,   1.08,
-            -0.76,   0.62,   9.34,  -7.10,
-             5.13,   6.62,  -5.66,   0.87,
-            -4.75,   8.52,   5.75,   5.30,
-             1.33,   4.91,  -5.49,  -3.52,
-            -2.40,  -6.77,   2.34,   3.95]
-            .sliced(6, 4);
+        auto b = vec3(1.0F, 2.0F, 3.0F);
 
-        auto r = a.svd;
+        auto x = zero!(float,3,1);
 
-        writeln(r.sigma);
+        solveRxb(A,b,x);
+
+        auto mustBe = Matrix!(float, 3LU, 1LU)([0.136364, 0.0227273, 0.272727]);
+
+        assert(areEqual(x, mustBe, 1e-6F));
     }
 
-    lubeck();
+    linearSystemTest();
 
+    void qrTest2(){
+        auto A = matS!([
+            [12.0F, -51.0F],
+            [6.0F, 167.0F],
+            [-4.0F, 24.0F]
+        ]);
+
+        auto Q = zero!(float,3,2);
+        auto R = zero!(float,2,2);
+
+        qr(A,Q,R);
+
+        writeln("qr2:");
+        writeln(R);
+
+
+        import lapacke;
+
+
+        float[3] tau;
+
+        LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, 3, 2, A.array.ptr, 2, tau.ptr);
+
+        writeln("lapacke qr2:");
+        writeln(A);
+
+        auto mat = matS!([
+                    [12.0F, -51.0F, 1.0F],
+                    [6.0F, 167.0F, 1.0F],
+                    [-4.0F, 24.0F, 1.0F]
+                ]);
+
+
+        auto U = zero!(float,3,3);
+        auto VT = U;
+
+        auto S = zero!(float,3,1);
+
+        float[2] cache;
+
+        auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, mat.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+
+        writeln("sgesvd:");
+        writeln(res);
+
+        writeln("singular values:");
+        writeln(S);
+
+        writeln("U:");
+        writeln(U);
+
+        writeln("VT:");
+        writeln(VT);
+    }
+
+
+    void matTest(){
+        float[6] m1 = [1.0F, 2.0F, 3.0F,
+                       4.0F, 5.0F, 6.0F];
+
+        auto m1T = new float[3 * 2];
+
+
+        auto m1TMustBe = [1.0F, 4.0F, 2.0F, 5.0F, 3.0F, 6.0F];
+
+        transpose(m1.ptr, 2,3, m1T.ptr);
+
+        writeln(m1);
+        writeln(m1T);
+
+        auto m2 = new float[2*2];
+
+        mult(m1.ptr, m1TMustBe.ptr, 2,3,2, m2.ptr);
+
+        writeln(m2);
+    }
+
+    matTest();
+
+
+    //qrTest2();
 
 
 

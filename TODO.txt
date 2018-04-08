@@ -2,3 +2,5 @@
 
 
 --test umdc, choose between umcd, uniform cubical marching squares and uniform/adaptive blocky terrain
+
+--generic matrix library which should work with any slice(static + dynamic sizes)
