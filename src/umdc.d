@@ -514,7 +514,6 @@ Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centr
 
     auto err1 = LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
 
-    writeln(err1);
 
 
     auto Af = zero!(float,3,3)();
@@ -544,14 +543,13 @@ Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centr
     auto AfCopy = Af;
 
     auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, Af.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
-     writeln(res);
 
 
-    writeln(original);
+    /*writeln(original);
     writeln(AfCopy);
     writeln(U);
     writeln(VT.transpose());
-    writeln(S);
+    writeln(S);*/
 
     foreach(i;0..3){
         if(S[i].abs() < 0.1F){
@@ -569,7 +567,7 @@ Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centr
 
 
 
-    return minimizer;//TODO
+    return minimizer;
 
 }
 
@@ -734,7 +732,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
         auto bounds = cube(x,y,z);
 
         uint config = 0;
-        size_t num = 0; //TODO remove
+        size_t num = 0; //TODO remove (not used)
 
         if(densities[indexDensity(x,y,z)] < 0.0){
             config |= 1;
@@ -813,7 +811,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                 if(!checkPointInsideCube(minimizer, bounds)){
                     //addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
-                    addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
+                    //addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
                 }
 
 

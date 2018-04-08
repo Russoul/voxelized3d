@@ -516,7 +516,7 @@ void runVoxelized(){
 
     auto obb = DenOBB(OBB!float(vec3!float(2.0,2.0,2.0), resDirs.column(0), resDirs.column(1), vec3!float(sizee,sizee,sizee)));
     DenUnion!(typeof(f), typeof(obb)) r = {f, obb};
-    DenDifference!(typeof(r), DenOBB) q = {r, obb};
+    DenUnion!(typeof(r), DenOBB) q = {r, obb};
 
     umdc.extract!(typeof(q))(q, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
 
