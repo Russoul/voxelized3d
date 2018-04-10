@@ -1,6 +1,16 @@
---check out D experimental allocators
+
+D:
+    --check out D experimental allocators
 
 
---test umdc, choose between umcd, uniform cubical marching squares and uniform/adaptive blocky terrain
 
---generic matrix library which should work with any slice(static + dynamic sizes)
+library enhancements:
+    --generic matrix library which should work with any slice(static + dynamic sizes)
+
+
+
+voxel engine:
+    --test umdc, choose between umdc, uniform cubical marching squares and uniform/adaptive blocky terrain
+    --try implement uniform cubical marching squares as it might be the best fit for GPU
+    --implement colorizer(f : Pos -> color) and render interesting terrain (sand,stone,ice,grass,etc..)
+    --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter

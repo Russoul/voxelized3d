@@ -258,7 +258,7 @@ void runVoxelized(){
 
     // ========================= UMDC ==============================
     auto noise = allocFastNoise();
-    setFrequency(noise, 6.0);
+    setFrequency(noise, 1.0);
 
     setNoiseType(noise, FastNoise.NoiseType.Simplex);
 
@@ -325,11 +325,17 @@ void runVoxelized(){
         this(void* noise, Cube!float cube){
             this.cube = cube;
             this.noise = noise;
+            import std.datetime;
+            auto currentTime = Clock.currTime();
+            import core.stdc.time;
+            time_t unixTime = core.stdc.time.time(null);
+            setSeed(noise, cast(int) unixTime);
         }
 
         @nogc float opCall(Vector3!float v){
 
-            auto den = (octaveNoise(noise, 8, 0.95F, v.x/4.0F, 0, v.z/4.0F) + 1)/2 * cube.extent * 2;
+            auto den = (octaveNoise(noise, 8, 0.82F, v.x/1.0F, 0, v.z/1.0F) + 1)/2 * cube.extent * 2;
+            //writeln(den);
             return (v.y - (cube.center.y - cube.extent)) - den;
         }
     }
@@ -518,7 +524,26 @@ void runVoxelized(){
     DenUnion!(typeof(f), typeof(obb)) r = {f, obb};
     DenUnion!(typeof(r), DenOBB) q = {r, obb};
 
-    umdc.extract!(typeof(q))(q, offset, a, size, acc, color, rendererTrianglesLight, rendererLines);
+
+    alias colorizer = delegate(Vector3!float v){
+        auto rel = v - offset;
+        auto a = bounds.extent * 2;
+
+        if(rel.y < a / 4){
+            return Vector3!float([64.0F/255.0F, 164.0F/255.0F, 223/255.0F]);
+        }
+        else if(rel.y < a/2){
+            return Vector3!float([37.6F/255.0F, 50.2F/255.0F, 22/255.0F]);
+        }
+        else if(rel.y < 3*a/4){
+            return Vector3!float([139.0F/255.0F, 141.0F/255.0F, 122/255.0F]);
+        }
+        else{
+            return Vector3!float([212.0F/255.0F, 240.0F/255.0F, 1.0F]);
+        }
+    };
+
+    umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
 
 
     freeFastNoise(noise);
@@ -529,7 +554,7 @@ void runVoxelized(){
 
 	shaders["lighting"].enable();
 	shaders["lighting"].setFloat3("pointLight.pos", vecS!([4.0F,4.0F,4.0F]));
-	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([25.0, 25.0, 25.0]));
+	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([25.0, 25.0, 25.0])/10.0F);
 
 
 	auto shaderDataLines =

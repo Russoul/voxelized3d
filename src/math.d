@@ -50,6 +50,12 @@ struct OBB(T){
     Vector3!T extent; // {right,up,look}
 }
 
+
+
+Vector3!T cubeMin(T)(Cube!T cube){
+    return cube.center - Vector3!T([cube.extent, cube.extent, cube.extent]);
+}
+
 //about memory layout of matrices in opengl:
 //https://stackoverflow.com/questions/17717600/confusion-between-c-and-opengl-matrix-order-row-major-vs-column-major
 

@@ -397,9 +397,12 @@ struct HermiteGrid{
 }
 
 Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
-    return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
-                          f(Vector3!float([point.x, point.y + eps, point.z])) - f(Vector3!float([point.x, point.y, point.z])),
-                          f(Vector3!float([point.x, point.y, point.z + eps])) - f(Vector3!float([point.x, point.y, point.z]))]).normalize();
+
+    float d = f(Vector3!float([point.x, point.y, point.z]));
+
+    return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - d,
+                          f(Vector3!float([point.x, point.y + eps, point.z])) - d,
+                          f(Vector3!float([point.x, point.y, point.z + eps])) - d]).normalize();
 }
 
 
@@ -674,9 +677,11 @@ Vector3!float solveQEF2(const ref Array!(Plane!float) planes, const ref Vector3!
 //5623ms
 //vvv
 //489 + 2303 ~~ 2792ms //200% speed increase
+//500 + 700 ~~ 1200ms //another 200% speed increase !
 
 //TODO curently HermiteGrid is not used
-void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float color, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
+//Colorizer is a function (f : Pos -> Color) for now, Pos is absolute position of feature vertex in a cell
+void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
 
 
@@ -685,9 +690,9 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     densities.reserve((size + 1)*(size + 1)*(size + 1));
     densities.length = (size + 1)*(size + 1)*(size + 1);
 
-    alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer and normal
+    alias CellData = Tuple!(Vector3!float, "minimizer", Vector3!float, "normal"); //minimizer, normal and density sampled at zero-crossing point of that edge
 
-    auto features = Array!(CellData[12])(); //TODO does it auto initialize hashmap ?
+    auto features = Array!(CellData[12])(); //TODO does it auto initialize hashmap ? That is a lot of extra storage !
     features.reserve(size * size * size);
     features.length = size * size * size; //make sure we can access any feature //TODO convert to static array
     //TODO switch to nogc hashmap or use arrays with O(1) access but more memory use as a tradeoff
@@ -809,6 +814,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                 //auto minimizer = sampleQefBrute2(curPlanes, meanPoint);
                 auto minimizer = solveQEF(curPlanes, meanPoint) + meanPoint;
 
+
                 if(!checkPointInsideCube(minimizer, bounds)){
                     //addCubeBounds(renderLines, bounds, Vector3!float([1,1,1])); //debug grid
                     //addCubeBounds(renderLines, Cube!float(minimizer, a/15.0F), Vector3!float([1,1,0]));//debug minimizer
@@ -837,15 +843,21 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
         uint edgeId = -1;
 
+
+        //TODO investigate: exist cells that are not initialized but isConstSign returns false
+        //it turns out that parallel exucution of loadDensities yields NaN values, why ?
         if(!isConstSign(d5,d6)){ //edgeId = 5
             edgeId = 5;
 
             auto data = cell[edgeId];
             auto normal = data.normal;
+            auto color = colorizer(data.minimizer);
+
 
             auto r = features[indexFeature(x+1,y,z)][7];
             auto ru = features[indexFeature(x+1,y+1,z)][3];
             auto u = features[indexFeature(x,y+1,z)][1];
+
 
 
             addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, r.minimizer, ru.minimizer), color, normal);
@@ -858,10 +870,16 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
             auto data = cell[edgeId];
             auto normal = data.normal;
+            auto color = colorizer(data.minimizer);
+            if(isNaN(data.minimizer.x)){ //debug
+                writeln(d7);
+                writeln(d6);
+            }
 
             auto f = features[indexFeature(x,y,z+1)][4];
             auto fu = features[indexFeature(x,y+1,z+1)][0];
             auto u = features[indexFeature(x,y+1,z)][2];
+
 
             addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, f.minimizer, fu.minimizer), color, normal);
             addTriangleColorNormal(renderTriLight, Triangle!(float,3)(data.minimizer, fu.minimizer, u.minimizer), color, normal);
@@ -872,6 +890,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
             auto data = cell[edgeId];
             auto normal = data.normal;
+            auto color = colorizer(data.minimizer);
 
             auto r = features[indexFeature(x+1,y,z)][11];
             auto rf = features[indexFeature(x+1,y,z+1)][8];
@@ -920,7 +939,16 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
     watch.start();
 
-    foreach(i; parallel(iota(0, size * size * size ))){
+
+    /*foreach(z; 0..size+1){
+        foreach(y; 0..size+1){
+            foreach(x; 0..size+1){
+                loadDensity(x,y,z);
+            }
+        }
+    }*/
+
+    foreach(i; parallel(iota(0, (size+1) * (size+1) * (size+1) ))){
         auto z = i / (size+1) / (size+1);
         auto y = i / (size+1) % (size+1);
         auto x = i % (size+1);
@@ -939,21 +967,21 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     watch.reset();
     watch.start();
 
-    foreach(z; 0..size){
+    /*foreach(z; 0..size){
         foreach(y; 0..size){
             foreach(x; 0..size){
                 loadCell(x,y,z);
             }
         }
-    }
+    }*/
 
-    /*foreach(i; parallel(iota(0, (size-1) * (size-1) * (size-1) + 1))){
+    foreach(i; parallel(iota(0, size * size * size))){
         auto z = i / size / size;
         auto y = i / size % size;
         auto x = i % size;
 
         loadCell(x,y,z);
-    }*/
+    }
 
     watch.stop();
 
@@ -973,7 +1001,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
         }
     }
 
-   /* foreach(i; parallel(iota(0, (size-2) * (size-2) * (size-2) + 1))){
+   /* foreach(i; parallel(iota(0, (size-1) * (size-1) * (size-1)))){
         auto z = i / (size-1) / (size-1);
         auto y = (i / (size-1)) % (size-1);
         auto x = i % (size-1);

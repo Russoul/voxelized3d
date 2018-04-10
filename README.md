@@ -12,3 +12,7 @@ depends on [FastNoise](https://github.com/Auburns/FastNoise), [GLFW3](http://www
 ![some noise](imgs/noise1.png)
 
 ![noise terrain](imgs/noise_terrain.png)
+
+![height map](imgs/heightmap1.png)
+
+![another height map](imgs/heightmap2.png)

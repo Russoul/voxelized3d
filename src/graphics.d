@@ -218,6 +218,7 @@ extern (C){
     void* freeFastNoise(void* noise);
     void setFrequency(void* noise, FN_DECIMAL frequency);
     void setNoiseType(void* noise, FastNoise.NoiseType typee);
+    void setSeed(void* noise, int seed);
     @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
 
 
