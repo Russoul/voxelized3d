@@ -16,8 +16,266 @@ import util;
 import traits;
 import graphics;
 import render;
+import hermite.uniform;
 
-
+int[3][256] specialTable1 = [
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [4, 11, -2],
+                            [3, 4, 11],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [3, 4, -2],
+                            [4, -2, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [11, -2, -2],
+                            [3, 11, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            [3, -2, -2],
+                            [-2, -2, -2],
+                            ];
 
 //in D static rectangular array is continious in memory
 int[16][256] edgeTable = [
@@ -280,6 +538,60 @@ int[16][256] edgeTable = [
 
                                ];
 
+//function that prints special table
+void specialTable(){
+    string str = "[";
+
+    foreach(i;0..256){
+        str ~= "\n[";
+        int[16] entries = edgeTable[i];
+
+        size_t s = 0;
+
+        bool[3] set;
+        set[0] = false;
+        set[1] = false;
+        set[2] = false;
+
+        foreach(j;0..16){
+            if(entries[j] == -2){
+                if(set[0]){
+                    str ~= "3, ";
+                }
+                if(set[1]){
+                    str ~= "4, ";
+                }
+                if(set[2]){
+                    if(s == 3)
+                        str ~= "11";
+                    else
+                        str ~= "11, ";
+                }
+                while(s < 2){
+                    str ~= "-2, ";
+                    s++;
+                }
+                if(s == 2){
+                    str ~= "-2";
+                }
+                str ~= "],";
+                break;
+            }else if(entries[j] == 3){
+                s += 1;
+                set[0] = true;
+            }else if(entries[j] == 4){
+                 s += 1;
+                 set[1] = true;
+            }else if(entries[j] == 11){
+                 s += 1;
+                 set[2] = true;
+            }
+        }
+    }
+
+    writeln( str ~ "\n]" );
+}
+
 uint[256] vertexNumTable = [
                                    0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
                                    1, 1, 2, 1, 2, 2, 2, 1, 2, 1, 3, 1, 2, 1, 2, 1,
@@ -414,7 +726,7 @@ bool isConstSign(float a, float b){
 //inner array binds edges according to the EMCT to that vertex
 Array!(Array!uint) whichEdgesAreSigned(uint config){
 
-    int[16] entry = edgeTable[config];
+    int[16] entry = edgeTable[config]; //TODO inefficient coping ?
     if(entry[0] == -2)
         return Array!(Array!uint)();
 
@@ -674,6 +986,72 @@ Vector3!float solveQEF2(const ref Array!(Plane!float) planes, const ref Vector3!
 
 }
 
+//sample density function and store(in RAM) the data in uniform format
+void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, ref UniformVoxelStorage!float storage){
+
+
+    pragma(inline,true)
+    size_t indexDensity(size_t x, size_t y, size_t z){
+        return z * (size + 1) * (size + 1) + y * (size + 1) + x;
+    }
+
+    pragma(inline,true)
+    void loadDensity(size_t x, size_t y, size_t z){
+        auto p = offset + vec3!float(x * a, y * a, z * a);
+        storage.grid[indexDensity(x,y,z)] = f(p);
+    }
+
+
+    pragma(inline,true)
+    void loadCell(size_t x, size_t y, size_t z){
+        uint config = 0;
+
+        if(storage.grid[indexDensity(x,y,z)] < 0.0){
+            config |= 1;
+        }
+        if(storage.grid[indexDensity(x+1,y,z)] < 0.0){
+            config |= 2;
+        }
+        if(storage.grid[indexDensity(x+1,y,z+1)] < 0.0){
+            config |= 4;
+        }
+        if(storage.grid[indexDensity(x,y,z+1)] < 0.0){
+            config |= 8;
+        }
+
+        if(storage.grid[indexDensity(x,y+1,z)] < 0.0){
+            config |= 16;
+        }
+        if(storage.grid[indexDensity(x+1,y+1,z)] < 0.0){
+            config |= 32;
+        }
+        if(storage.grid[indexDensity(x+1,y+1,z+1)] < 0.0){
+            config |= 64;
+        }
+        if(storage.grid[indexDensity(x,y+1,z+1)] < 0.0){
+            config |= 128;
+        }
+
+        if(config != 0 && config != 255){
+
+            auto edge3  = HermiteData!float();
+            auto edge4  = HermiteData!float();
+            auto edge11 = HermiteData!float();
+
+            int* entry = &edgeTable[config][0];
+            int curEntry = entry[0];
+            while(curEntry != -2){ //TODO create special table for this (same as 16*256 table but without `-1`s as delimiters and extra edges (only 3,4,11))
+
+
+
+
+
+                curEntry = *(++entry);
+            }
+        }
+    }
+}
+
 //5623ms
 //vvv
 //489 + 2303 ~~ 2792ms //200% speed increase
@@ -791,7 +1169,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                     auto v2 = cornerPoints[pair.y];
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
-                    auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
+                    auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);//duplication here(same edge can be sampled 1 to 4 times)
                     auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO test this `eps`
 
                     //if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection

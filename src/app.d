@@ -161,6 +161,7 @@ void updateWindowInfo(ref WindowInfo win){
 void main() @system
 {
     println("Running Voxelized3D...");
+    //specialTable();
 	runVoxelized();
 }
 

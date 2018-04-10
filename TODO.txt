@@ -14,3 +14,10 @@ voxel engine:
     --try implement uniform cubical marching squares as it might be the best fit for GPU
     --implement colorizer(f : Pos -> color) and render interesting terrain (sand,stone,ice,grass,etc..)
     --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter
+
+    --basic idea and principle of hermite data format:
+        we have n^3 uniform grid where n is number of cells along each axis
+        1)we store (n+1)^3 density samples at corner points in one continuous array
+        2)we store n^3 pointers (one for each cell). If the pointer in a cell is null then the cell is fully inside the closed surface on outside
+           else the pointer should point to a region of memory where 3 continuous structs are located each containing
+             zero-crossing point and normal
