@@ -18,6 +18,12 @@ import graphics;
 import render;
 import hermite.uniform;
 
+//maps:
+//  3 -> 0
+//  4 -> 1
+// 11 -> 2
+int[12] specialTable2 = [-1,-1,-1,0,1,-1,-1,-1,-1,-1,-1,2];
+
 int[3][256] specialTable1 = [
                             [-2, -2, -2],
                             [3, -2, -2],
@@ -642,7 +648,7 @@ Vector2!uint[12] edgePairs = [
                                     vecS!([3u,7u]),
 ];
 
-
+//TODO remove =============================
 struct Cell{
     float[8] densities;
     Plane!float[size_t] hermiteData;
@@ -680,6 +686,7 @@ struct HermiteGrid{
         return Cube!float(offset + Vector3!float([(x + 0.5F)*a, (y + 0.5F) * a, (z + 0.5F) * a]), a / 2.0F);
     }
 }
+//TODO ====================================
 
 @Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
     auto ext = line.end - line.start;
@@ -806,7 +813,7 @@ Vector3!float sampleQefBrute2(const ref Array!(Plane!float) planes, Vector3!floa
 }
 
 //solves QEF as written in paper: http://www.cs.wustl.edu/~taoju/research/dualContour.pdf
-Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centroid){ //TODO uses GC !
+Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centroid){ //TODO uses GC ! ?
     auto n = planes.length;
     auto Ab = Array!float();
     Ab.reserve(n * 4);
@@ -996,14 +1003,28 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t si
     }
 
     pragma(inline,true)
+    size_t indexCell(size_t x, size_t y, size_t z){
+        return z * size * size + y * size + x;
+    }
+
+    pragma(inline,true)
     void loadDensity(size_t x, size_t y, size_t z){
         auto p = offset + vec3!float(x * a, y * a, z * a);
         storage.grid[indexDensity(x,y,z)] = f(p);
     }
 
+    pragma(inline,true)
+    Cube!float cube(size_t x, size_t y, size_t z){//cube bounds of a cell in the grid
+        return Cube!float(offset + Vector3!float([(x + 0.5F)*a, (y + 0.5F) * a, (z + 0.5F) * a]), a / 2.0F);
+    }
+
 
     pragma(inline,true)
     void loadCell(size_t x, size_t y, size_t z){
+
+        auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
+        auto bounds = cube(x,y,z);
+
         uint config = 0;
 
         if(storage.grid[indexDensity(x,y,z)] < 0.0){
@@ -1032,24 +1053,68 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t si
             config |= 128;
         }
 
-        if(config != 0 && config != 255){
+        int* entry = &edgeTable[config][0];
 
-            auto edge3  = HermiteData!float();
-            auto edge4  = HermiteData!float();
-            auto edge11 = HermiteData!float();
-
-            int* entry = &edgeTable[config][0];
+        if(*entry != -2){
             int curEntry = entry[0];
-            while(curEntry != -2){ //TODO create special table for this (same as 16*256 table but without `-1`s as delimiters and extra edges (only 3,4,11))
+            HermiteData!(float)[3] edges;
+            while(curEntry != -2){
 
 
+                auto corners = edgePairs[curEntry];
+                auto edge = Line!(float,3)(cellMin + cornerPoints[corners.x] * a, cellMin + cornerPoints[corners.y] * a);
+                auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
+                auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f);
 
+                edges[specialTable1[curEntry]] = HermiteData(intersection, normal);
 
 
                 curEntry = *(++entry);
             }
+
+
+            storage.data.insertBack(edges);
+
+            auto ptrToLastElement = &storage.data.back();
+
+            storage.edgeInfo[indexCell(x,y,z)] = ptrToLastElement;
+
         }
+
+
     }
+
+
+    foreach(i; parallel(iota(0, (size+1) * (size+1) * (size+1) ))){
+        auto z = i / (size+1) / (size+1);
+        auto y = i / (size+1) % (size+1);
+        auto x = i % (size+1);
+
+        loadDensity(x,y,z);
+    }
+
+    foreach(i; parallel(iota(0, size * size * size))){
+        auto z = i / size / size;
+        auto y = i / size % size;
+        auto x = i % size;
+
+        loadCell(x,y,z);
+    }
+
+    //TODO here storage.data can be shrinked
+    //TODO if data is modified some cells can become zero references, some may gain references so storage.data can get fragmented, so defragmentation will be required
+    //TODO or store each HermiteData[3] piece seprately in memory(this will drastically increase cache misses => performance loss when reading)
+}
+
+void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
+
+
+    //this function will find the hermite data for the edge given coordinates of the cell in which the edge is located and local index of the edge in that cell
+    pragma(inline,true)
+    size_t indexEdge(size_t x, size_t y, size_t z, size_t index){
+        return z * size * size + y * size + x;
+    }
+
 }
 
 //5623ms
@@ -1091,6 +1156,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
     size_t indexFeature(size_t x, size_t y, size_t z){
         return z * size * size + y * size + x;
     }
+
 
     /*pragma(inline, true) //3 * (n+1)^2 * n
     size_t indexEdge(size_t x, size_t y, size_t z, size_t localEdgeId){//cell coordinates and local edge id
@@ -1170,7 +1236,7 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
                     auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);//duplication here(same edge can be sampled 1 to 4 times)
-                    auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO test this `eps`
+                    auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f);
 
                     //if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection
                     //if(x == 45 && y == 54 && z == 69)addLine3Color(renderLines, Line!(float,3)(intersection, intersection + normal * a / 3.0F), Vector3!float([0,0,1]));
