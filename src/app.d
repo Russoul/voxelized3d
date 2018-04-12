@@ -544,7 +544,19 @@ void runVoxelized(){
         }
     };
 
-    umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
+    //umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
+    import hermite.uniform;
+
+    StopWatch watch;
+    watch.start();
+    auto storage = UniformVoxelStorage!float(size);
+    umdc.sample!(typeof(q))(q, offset, a, acc, storage);
+    umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
+    watch.stop();
+    size_t ms;
+    watch.peek().split!"msecs"(ms);
+    printf("Whole process took %d ms", ms);
+    stdout.flush();
 
 
     freeFastNoise(noise);
