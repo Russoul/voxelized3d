@@ -1048,7 +1048,7 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
                 auto corners = edgePairs[curEntry];
                 auto edge = Line!(float,3)(cellMin + cornerPoints[corners.x] * a, cellMin + cornerPoints[corners.y] * a);
                 auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
-                auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f);
+                auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO division by 1024 is improper for very high sizes
 
                 edges[specialTable2[curEntry]] = HermiteData!float(intersection, normal);
 
@@ -1214,6 +1214,8 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
         if(config != 0 && config != 255){
 
+            writeln(config); //debug
+
             auto vertices = whichEdgesAreSigned(config);
 
             foreach(ref vertex; vertices){
@@ -1225,10 +1227,10 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
                     HermiteData!float edgeData = *indexEdge(x,y,z, edgeId);
 
-                    auto plane = Plane!float(edgeData.intersection, edgeData.normal);
+                    auto plane = Plane!float(Vector3!float(edgeData.intersection), Vector3!float(edgeData.normal));
 
                     curPlanes.insertBack(plane);
-                    meanPoint = meanPoint + edgeData.intersection;
+                    meanPoint = meanPoint + plane.point;
 
                 }
 
@@ -1264,7 +1266,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 5;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
+            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
             auto color = colorizer(minimizer);
 
 
@@ -1283,7 +1285,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 6;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
+            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
             auto color = colorizer(minimizer);
 
             auto f = minimizers[indexMinimizer(x,y,z+1)][4];
@@ -1299,7 +1301,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 10;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
+            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
             auto color = colorizer(minimizer);
 
             auto r = minimizers[indexMinimizer(x+1,y,z)][11];
@@ -1365,7 +1367,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 //489 + 2303 ~~ 2792ms //200% speed increase
 //500 + 700 ~~ 1200ms //another 200% speed increase !
 
-//TODO curently HermiteGrid is not used
+//TODO REMOVE
 //Colorizer is a function (f : Pos -> Color) for now, Pos is absolute position of feature vertex in a cell
 void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t size, size_t accuracy, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 

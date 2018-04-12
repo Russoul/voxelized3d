@@ -8,4 +8,16 @@ set(CMAKE_CXX_COMPILER=/usr/bin/clang)
 
 include_directories(../native/include)
 
-add_library(voxelizedBindings STATIC FastNoise.h lib.cpp)
+find_package(CUDA QUIET REQUIRED)
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
+link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+
+set(
+        CUDA_NVCC_FLAGS
+        ${CUDA_NVCC_FLAGS};
+        -arch=compute_30 -rdc=false -lcudadevrt # not needed for static lib
+)
+
+cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu)

@@ -335,7 +335,7 @@ void runVoxelized(){
 
         @nogc float opCall(Vector3!float v){
 
-            auto den = (octaveNoise(noise, 8, 0.82F, v.x/1.0F, 0, v.z/1.0F) + 1)/2 * cube.extent * 2;
+            auto den = (octaveNoise(noise, 8, 0.82F, v.x/1.0F, 0, v.z/1.0F) + 1)/2 * cube.extent * 2  * 0.7F;
             //writeln(den);
             return (v.y - (cube.center.y - cube.extent)) - den;
         }
@@ -548,15 +548,30 @@ void runVoxelized(){
     import hermite.uniform;
 
     StopWatch watch;
-    watch.start();
+
     auto storage = UniformVoxelStorage!float(size);
+
+    //auto storageC = UniformVoxelStorageC(cast(uint)storage.cellCount, storage.grid, storage.edgeInfo);
+
+    watch.start();
+    sampleGPU(cast(float3)offset, a, cast(uint)acc, &storage);//TODO malloc calls inside !
+    watch.stop();
+    size_t ms;
+    watch.peek().split!"msecs"(ms);
+    printf("GPU sampling took %d ms\n", ms);
+
+    umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
+
+
+    /*
+    watch.start();
     umdc.sample!(typeof(q))(q, offset, a, acc, storage);
     umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
     watch.stop();
     size_t ms;
     watch.peek().split!"msecs"(ms);
     printf("Whole process took %d ms", ms);
-    stdout.flush();
+    stdout.flush();*/
 
 
     freeFastNoise(noise);

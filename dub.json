@@ -6,10 +6,10 @@
 	"description": "3D voxel egnine",
 	"copyright": "Copyright © 2018, russoul",
 	"license": "MIT",
-	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "voxelizedBindings", "blas", "lapack", "lapacke"],
+	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "cudart_static", "cudadevrt", "voxelizedBindings", "blas", "lapack", "lapacke"],
 	"dependencies": {
 	},
 	"dflags": ["-gc" ],
-	"lflags": ["-export-dynamic"]
+	"lflags": ["-export-dynamic", "-L/usr/local/cuda/lib64"]
 
 }

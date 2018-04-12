@@ -22,28 +22,38 @@ import render;
 
 //uniform hermite data
 struct HermiteData(T){ //one of those for each edge that exhibits a sign change
-    Vector3!T intersection;
-    Vector3!T normal;
+    T[3] intersection;
+    T[3] normal;
 }
 
 struct UniformVoxelStorage(T){
-    size_t cellCount;
-    Array!T grid; //of length `(cellCount+2)^3` //extra one is needed
-    Array!(HermiteData!(T)*) edgeInfo; //of length (cellCount+1)^3
+    uint cellCount;
+    T* grid; //of length `(cellCount+2)^3` //extra one is needed
+    HermiteData!(T)** edgeInfo; //of length (cellCount+1)^3
     //extra one cell in each axis is required for edgeInfo because each cell contains only 3 tagged edges (number 0, 3 and 8 in the edge table)
 
-    this(size_t cellCount){
+    this(uint cellCount){
         this.cellCount = cellCount;
 
-        grid = Array!(T)(); //initialization is not needed as each value will be set anyway
-        grid.reserve( (cellCount + 2) * (cellCount + 2) * (cellCount + 2));
-        grid.length = (cellCount + 2) * (cellCount + 2) * (cellCount + 2);
+        import core.stdc.stdlib : malloc;
 
-        edgeInfo = Array!(HermiteData!(T)*)();
-        edgeInfo.reserve((cellCount + 1)*(cellCount + 1)*(cellCount + 1));
-        edgeInfo.length = (cellCount + 1)*(cellCount + 1)*(cellCount + 1);
+        grid = cast(float*) malloc((cellCount + 2) * (cellCount + 2) * (cellCount + 2) * T.sizeof); //initialization is not needed as each value will be set anyway
+
+        edgeInfo = cast(HermiteData!(T)**) malloc((cellCount + 1)*(cellCount + 1)*(cellCount + 1) * (HermiteData!(T)*).sizeof);
 
         memset(&edgeInfo[0], 0, (HermiteData!(T)*).sizeof * (cellCount + 1) * (cellCount + 1) * (cellCount + 1)); //initialize all pointers to null
+    }
+
+    @disable this(this);
+
+    ~this(){
+        import core.stdc.stdlib : free;
+
+        free(grid);
+        foreach(i; (cellCount + 1)*(cellCount + 1)*(cellCount + 1)){
+            free(edgeInfo[i]);
+        }
+        free(edgeInfo);
     }
 }
 

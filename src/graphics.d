@@ -210,6 +210,7 @@ extern (C++){
     }
 }
 
+
 //bindings (voxelized)
 extern (C){
 
@@ -220,6 +221,24 @@ extern (C){
     void setNoiseType(void* noise, FastNoise.NoiseType typee);
     void setSeed(void* noise, int seed);
     @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
+
+
+    import hermite.uniform;
+
+
+   /* struct UniformVoxelStorageC{ //TODO can we get around using this extra struct ?
+        uint cellCount;
+        float* grid;
+        HermiteData!(float)** edge_info;
+    }*/
+
+    struct float3{
+        float x;
+        float y;
+        float z;
+    }
+
+    void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage!float* storage);
 
 
     void setStackSize(size_t MB);
