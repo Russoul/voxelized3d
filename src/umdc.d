@@ -669,47 +669,8 @@ Vector2!uint[12] edgePairs = [
                                     vecS!([3u,7u]),
 ];
 
-//TODO remove =============================
-struct Cell{
-    float[8] densities;
-    Plane!float[size_t] hermiteData;
-    uint config;
-}
 
-struct HermiteGrid{
-    float a;
-    size_t size; //number of cells along each axis
-    Cell** cells;
-
-
-    import std.conv : emplace;
-    import core.stdc.stdlib : malloc, free;
-    import core.memory : GC;
-
-
-    this(float a, size_t size){
-        auto ptrSize = (Cell*).sizeof;
-        auto memSize = size * size * size * ptrSize;
-
-        this.a = a;
-        this.size = size;
-        this.cells = cast(Cell**) malloc(memSize);
-
-        memset(this.cells, 0, memSize);
-    }
-
-    ~this(){
-        free(cells);
-    }
-
-
-    Cube!float cube(size_t x, size_t y, size_t z, Vector3!float offset){
-        return Cube!float(offset + Vector3!float([(x + 0.5F)*a, (y + 0.5F) * a, (z + 0.5F) * a]), a / 2.0F);
-    }
-}
-//TODO ====================================
-
-@Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
+Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
     auto ext = line.end - line.start;
     auto norm = ext.norm();
     auto dir = ext / norm;
