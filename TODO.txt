@@ -15,4 +15,8 @@ voxel engine:
     --implement colorizer(f : Pos -> color) and render interesting terrain (sand,stone,ice,grass,etc..)
     --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter
 
-    --port uniform voxel storage sampling to GPU
+    --port uniform voxel storage sampling to GPU DONE
+    --clean up GPU stuff
+
+    --there is a bug somewhere: sometimes program crashs on extraction(umdc)
+    --CPU noise looks very smooth and nice but GPU looks bad, why ?

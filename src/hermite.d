@@ -22,8 +22,8 @@ import render;
 
 //uniform hermite data
 struct HermiteData(T){ //one of those for each edge that exhibits a sign change
-    T[3] intersection;
-    T[3] normal;
+    Vector3!float intersection;
+    Vector3!float normal;
 }
 
 struct UniformVoxelStorage(T){
@@ -49,10 +49,13 @@ struct UniformVoxelStorage(T){
     ~this(){
         import core.stdc.stdlib : free;
 
-        free(grid);
-        foreach(i; (cellCount + 1)*(cellCount + 1)*(cellCount + 1)){
-            free(edgeInfo[i]);
-        }
+        free(grid); 
+        // foreach(i; 0..(cellCount + 1)*(cellCount + 1)*(cellCount + 1)){
+        //     free(edgeInfo[i]);
+        // }
+        //clearing dependends on sampling method ! on gpu its monolith array, on cpu its scattered arrays each of them needs to be freed
+
+
         free(edgeInfo);
     }
 }

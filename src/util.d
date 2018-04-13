@@ -126,6 +126,7 @@ size_t createProgramVertFrag(string vertSrc_, string fragSrc_){
         writefln("Failed to compile fragment shader !\n Source:\n-------------------------\n%s\n-------------------------\nError:\n%s", fragSrc_, strInfo);
         stdout.flush();
         panic!void("");
+        
     }
 
     glAttachShader(prog, vertId);

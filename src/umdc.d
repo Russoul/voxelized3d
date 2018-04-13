@@ -1041,7 +1041,8 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
         if(*entry != -2){
             int curEntry = entry[0];
-            HermiteData!(float)[] edges = new HermiteData!(float)[3]; //TODO remove GC allocation
+            import core.stdc.stdlib : malloc;
+            HermiteData!(float)* edges = cast(HermiteData!(float)*)malloc((HermiteData!float).sizeof * 3); //TODO needs to be cleared
             while(curEntry != -2){
 
 
@@ -1059,7 +1060,7 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
 
 
-            storage.edgeInfo[indexCell(x,y,z)] = edges.ptr;
+            storage.edgeInfo[indexCell(x,y,z)] = edges;
 
         }
 
@@ -1167,8 +1168,10 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
         size_t mappedIndex = cast(size_t) specialTable2[index]; //mapped index is in integer range [0,2]
 
-        /*printf("id=%d, ind=%d, ptr=%u\n", index, mappedIndex, cast(ulong) (storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex));
-        stdout.flush();*/
+        if(cast(ulong) storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex < 100)printf("id=%d, ind=%d, ptr=%u\n, x=%u, y=%u, z=%u, j=%u", index, mappedIndex, cast(ulong) (storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex), x,y,z, indexCell(x + offset.x,y + offset.y,z + offset.z));
+        stdout.flush();
+
+        
 
         return storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex;
     }
@@ -1210,11 +1213,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
         }
 
 
-
-
         if(config != 0 && config != 255){
-
-            writeln(config); //debug
 
             auto vertices = whichEdgesAreSigned(config);
 
@@ -1227,7 +1226,9 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
                     HermiteData!float edgeData = *indexEdge(x,y,z, edgeId);
 
-                    auto plane = Plane!float(Vector3!float(edgeData.intersection), Vector3!float(edgeData.normal));
+                    //writeln(edgeData);
+
+                    auto plane = Plane!float(edgeData.intersection, edgeData.normal);
 
                     curPlanes.insertBack(plane);
                     meanPoint = meanPoint + plane.point;
@@ -1237,6 +1238,8 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
                 meanPoint = meanPoint / curPlanes.length;
 
                 auto minimizer = solveQEF(curPlanes, meanPoint) + meanPoint;
+
+                //writeln(minimizer);
 
                 /*writeln(meanPoint);
                 writeln(minimizer);
@@ -1266,7 +1269,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 5;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
+            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
             auto color = colorizer(minimizer);
 
 
@@ -1285,7 +1288,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 6;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
+            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
             auto color = colorizer(minimizer);
 
             auto f = minimizers[indexMinimizer(x,y,z+1)][4];
@@ -1301,7 +1304,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             edgeId = 10;
 
             auto minimizer = minimizers[indexMinimizer(x,y,z)][edgeId];
-            auto normal = Vector3!float((*indexEdge(x,y,z,edgeId)).normal);
+            auto normal = (*indexEdge(x,y,z,edgeId)).normal;
             auto color = colorizer(minimizer);
 
             auto r = minimizers[indexMinimizer(x+1,y,z)][11];

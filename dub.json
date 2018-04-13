@@ -8,6 +8,7 @@
 	"license": "MIT",
 	"libs": ["GL", "glad", "glfw3", "stdc++", "FastNoise", "cudart_static", "cudadevrt", "voxelizedBindings", "blas", "lapack", "lapacke"],
 	"dependencies": {
+		
 	},
 	"dflags": ["-gc" ],
 	"lflags": ["-export-dynamic", "-L/usr/local/cuda/lib64"]
