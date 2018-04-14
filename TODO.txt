@@ -12,13 +12,10 @@ library enhancements:
 voxel engine:
     --test umdc, choose between umdc, uniform cubical marching squares and uniform/adaptive blocky terrain
     --try implement uniform cubical marching squares as it might be the best fit for GPU
-    --implement colorizer(f : Pos -> color) and render interesting terrain (sand,stone,ice,grass,etc..)
     --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter
 
-    --port uniform voxel storage sampling to GPU DONE
     --clean up GPU stuff
 
-    --there is a bug somewhere: sometimes program crashs on extraction(umdc)
-    --CPU noise looks very smooth and nice but GPU looks bad, why ?
 
     --implement custom GPU noise using some really fast random noise backend ? Or even port FastNoise to GPU !
+    --implement picking and on-the-fly terrain modification(without full reload)
