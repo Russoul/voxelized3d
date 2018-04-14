@@ -137,11 +137,34 @@ inline __device__ __host__ uint indexCell(uint cellCount, uint x, uint y, uint z
     return z * (cellCount + 1) * (cellCount + 1) + y * (cellCount + 1) + x;
 }
 
+inline __device__ float denSphere(float3 offset, float rad, float3 p){
+    return dot(p - offset, p - offset) - rad * rad;
+}
+
+inline __device__ float octaveNoise(size_t octaves, float persistence, float x, float y, float z, int seed){
+    float total = 0.0F;
+    float frequency = 1.0F;
+    float amplitude = 1.0F;
+    float maxValue = 0.0;
+
+    float k = powf(2.0, octaves - 1);
+
+    for (int i = 0; i < octaves; ++i) {
+        total += cudaNoise::simplexNoise(make_float3(x * frequency / k, y * frequency / k, z * frequency / k),1, seed);
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2.0;
+    }
+
+    return total / maxValue;
+}
 
 inline __device__ float noiseFn(float3 p, int seed, float ymin, float extent){
-    auto den = (cudaNoise::perlinNoise(make_float3(p.x, 0, p.z), 1, seed) + 1)/2 * 2 * extent * 0.7F;
-
+    auto den = octaveNoise(8, 0.85F, p.x, 0, p.z, seed)/2 * 2 * extent * 0.7F;
     return p.y - ymin - den;
+   /* auto den = denSphere(make_float3(2,2,2), 2, p);
+    return den;*/
+
 }
 
 
@@ -238,6 +261,7 @@ __global__ void markCell(uint indexOffset, UniformVoxelStorage storage, bool* ma
     }
 
 
+
     if(specialTable1[3 * config] != -2){
         marks[i] = 1;
     }else{
@@ -318,24 +342,25 @@ extern "C" void testVec3f(float3 a){
 
 }
 
+
+void setConstantMem();
+
 extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage* storage){
     auto size = storage->cellCount;
 
     printf("info: ox=%f oy=%f oz=%f a=%f\n size=%d", offset.x, offset.y, offset.z, a, size);
 
-    size_t heapLimit;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1024 * 1024 * 1024); //set 1G available memory
-
-    std::cout << "heap limit = " << heapLimit << std::endl;
-
 
     std::cout << "start" << std::endl;
     std::flush(std::cout);
 
-    int seed = 343842934;
+    int seed = static_cast<int>(time(NULL));
 
     float extent = size * a / 2;
     float ymin = offset.y;
+
+    setConstantMem();
 
     float* grid_d;
     HermiteData** edgeInfo_d;
@@ -355,13 +380,13 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
     UniformVoxelStorage storage_d = {size, grid_d, edgeInfo_d};
 
 
-    std::cout << "before density" << std::endl;
+    //std::cout << "before density" << std::endl;
     kernelLoadDensity<<<(size+2)*(size+2),(size+2)>>>(offset, a, storage_d, seed, ymin, extent);
 
 
 
-    std::cout << "after density" << std::endl;
-    std::flush(std::cout);
+    //std::cout << "after density" << std::endl;
+    //std::flush(std::cout);
 
     markCell<<<(size+1)*(size+1),(size+1)>>>(0, storage_d, marks_d);
     gpuErrchk(cudaMemcpy(marks, marks_d, sizeof(bool) * (size+1)*(size+1)*(size+1), cudaMemcpyDeviceToHost));
@@ -380,6 +405,73 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
     gpuErrchk(cudaMalloc(&data_d, sizeof(HermiteData) * 3 * indices.size()));
 
+
+
+    std::cout << "index count = " << indices.size() << std::endl;
+    std::flush(std::cout);
+
+    uint blockSize = 256;
+
+    uint invokations = indices.size() / blockSize + 1;
+
+    loadCell<<<invokations,256>>>(0, offset, a, acc, storage_d, seed, marked_d, indices.size(), data_d, ymin, extent);
+
+    gpuErrchk(cudaDeviceSynchronize());
+
+    gpuErrchk(cudaFree(marked_d));
+
+
+
+    gpuErrchk(cudaMemcpy(storage->grid, storage_d.grid, sizeof(float) * (size + 2) * (size + 2) * (size + 2), cudaMemcpyDeviceToHost));
+
+    std::cout << "after grid copy" << std::endl;
+
+    std::flush(std::cout);
+
+    /*for (int k = 0; k < (size + 2) * (size + 2) * (size + 2); ++k) {
+        if(storage->grid[k] != 0.0F)
+            printf("sampled: %f\n",storage->grid[k]);
+    }*/
+
+    gpuErrchk(cudaFree(grid_d));
+
+
+
+
+
+
+    gpuErrchk(cudaMemcpy(storage->edgeInfo, storage_d.edgeInfo, sizeof(HermiteData*) * (size + 1) * (size + 1) * (size + 1), cudaMemcpyDeviceToHost));
+
+    HermiteData* data = static_cast<HermiteData *>(malloc(sizeof(HermiteData) * 3 * indices.size())); //TODO pass back and free
+
+    gpuErrchk(cudaMemcpy(data, data_d, sizeof(HermiteData) * 3 * indices.size(), cudaMemcpyDeviceToHost));
+
+
+
+    for (int j = 0; j < (size + 1)*(size + 1)*(size + 1); ++j) {
+        HermiteData* ptr_d = storage->edgeInfo[j];
+
+
+        using namespace std;
+        if(ptr_d){
+            storage->edgeInfo[j] = (ptrdiff_t)(ptr_d - data_d) + data;
+            if((ulong)storage->edgeInfo[j] < 1000){
+                std::cout << "bad " << j << " " << ptr_d << " " << data_d << " " << data << std::endl;
+            }
+
+            //std::cout << j << " i " << dump_float3(storage->edgeInfo[j]->intersection) << std::endl;
+
+            //std::cout << j << " n " << dump_float3(storage->edgeInfo[j]->normal) << std::endl;
+        }
+    }
+
+    gpuErrchk(cudaFree(edgeInfo_d));
+    gpuErrchk(cudaFree(data_d));
+
+}
+
+
+void setConstantMem(){
     int specialTable1_local[256][3] = {
 
 
@@ -657,20 +749,20 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
     };
 
     uint2 edgePairs_local[12] = {
-       make_uint2(0,1),
-       make_uint2(1,2),
-       make_uint2(3,2),
-       make_uint2(0,3),
+            make_uint2(0,1),
+            make_uint2(1,2),
+            make_uint2(3,2),
+            make_uint2(0,3),
 
-       make_uint2(4,5),
-       make_uint2(5,6),
-       make_uint2(7,6),
-       make_uint2(4,7),
+            make_uint2(4,5),
+            make_uint2(5,6),
+            make_uint2(7,6),
+            make_uint2(4,7),
 
-       make_uint2(4,0),
-       make_uint2(1,5),
-       make_uint2(2,6),
-       make_uint2(3,7)
+            make_uint2(4,0),
+            make_uint2(1,5),
+            make_uint2(2,6),
+            make_uint2(3,7)
     };
 
     for (int i = 0; i < 256; ++i) {
@@ -685,92 +777,4 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
     gpuErrchk(cudaMemcpyToSymbol(cornerPoints, cornerPoints_local, sizeof(float3) * 8));
     gpuErrchk(cudaMemcpyToSymbol(edgePairs, edgePairs_local, sizeof(uint2) * 12));
-
-    std::cout << "before load1" << std::endl;
-    std::cout << "index count = " << indices.size() << std::endl;
-    std::flush(std::cout);
-
-    uint blockSize = 256;
-
-    uint invokations = indices.size() / blockSize + 1;
-
-    loadCell<<<invokations,256>>>(0, offset, a, acc, storage_d, seed, marked_d, indices.size(), data_d, ymin, extent);
-
-    gpuErrchk(cudaDeviceSynchronize());
-
-    cudaFree(marked_d);
-
-
-    /*
-
-    cudaEvent_t kernelExec;
-    cudaEventCreate(&kernelExec);
-
-    const int timeout = 20000000;
-    int progressed = 0;
-    while (cudaEventQuery(kernelExec) != cudaSuccess) {
-        usleep(20000);
-        progressed += 20000;
-        if (progressed >= timeout) {
-            cudaDeviceReset();
-
-            throw std::runtime_error("timeout");
-        }
-    }
-
-    std::cout << "after load" << std::endl;
-    std::flush(std::cout);
-
-    cudaDeviceSynchronize();*/
-
-
-
-    gpuErrchk(cudaMemcpy(storage->grid, storage_d.grid, sizeof(float) * (size + 2) * (size + 2) * (size + 2), cudaMemcpyDeviceToHost));
-
-    std::cout << "after grid copy" << std::endl;
-
-    std::flush(std::cout);
-
-    /*for (int k = 0; k < (size + 2) * (size + 2) * (size + 2); ++k) {
-        if(storage->grid[k] != 0.0F)
-            printf("sampled: %f\n",storage->grid[k]);
-    }*/
-
-    gpuErrchk(cudaFree(grid_d));
-
-
-
-
-
-
-    gpuErrchk(cudaMemcpy(storage->edgeInfo, storage_d.edgeInfo, sizeof(HermiteData*) * (size + 1) * (size + 1) * (size + 1), cudaMemcpyDeviceToHost));
-
-    HermiteData* data = static_cast<HermiteData *>(malloc(sizeof(HermiteData) * 3 * indices.size())); //TODO pass back and free
-
-    gpuErrchk(cudaMemcpy(data, data_d, sizeof(HermiteData) * 3 * indices.size(), cudaMemcpyDeviceToHost));
-
-
-
-    for (int j = 0; j < (size + 1)*(size + 1)*(size + 1); ++j) {
-        HermiteData* ptr_d = storage->edgeInfo[j];
-
-
-        using namespace std;
-        if(ptr_d){
-            storage->edgeInfo[j] = (ptrdiff_t)(ptr_d - data_d) + data;
-            if(j == 1091){
-                std::cout << "bad " << j << " " << ptr_d << " " << data_d << " " << data << std::endl;
-            }
-
-            /*std::cout << j << " i " << dump_float3(storage->edgeInfo[j]->intersection) << std::endl;
-
-            std::cout << j << " n " << dump_float3(storage->edgeInfo[j]->normal) << std::endl;*/
-        }
-    }
-
-    gpuErrchk(cudaFree(edgeInfo_d));
-    gpuErrchk(cudaFree(data_d));
-
 }
-
-

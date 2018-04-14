@@ -708,7 +708,7 @@ Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref 
 
 
 bool isConstSign(float a, float b){
-    return a > 0.0 ? b > 0.0 : b <= 0.0;
+    return a >= 0.0 ? b >= 0.0 : b <= 0.0; //non-strictness if very important here ! because things like absolute zero density happen !
 }
 
 //outer array corresponds to each vertex to be placed inside the cell
@@ -1133,7 +1133,9 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
 void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float a, size_t accuracy, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
+    
     auto size = storage.cellCount;
+
 
     auto minimizers = Array!(Vector3!(float)[12])();
     minimizers.reserve(size * size * size);
@@ -1167,11 +1169,10 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
         auto offset = specialTable3[index];
 
         size_t mappedIndex = cast(size_t) specialTable2[index]; //mapped index is in integer range [0,2]
-
-        if(cast(ulong) storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex < 100)printf("id=%d, ind=%d, ptr=%u\n, x=%u, y=%u, z=%u, j=%u", index, mappedIndex, cast(ulong) (storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex), x,y,z, indexCell(x + offset.x,y + offset.y,z + offset.z));
-        stdout.flush();
-
         
+
+        // if(cast(ulong) storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex < 100)printf("id=%d, ind=%d, ptr=%u\n, x=%u, y=%u, z=%u, j=%u", index, mappedIndex, cast(ulong) (storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex), x,y,z, indexCell(x + offset.x,y + offset.y,z + offset.z));
+        // stdout.flush();
 
         return storage.edgeInfo[indexCell(x + offset.x,y + offset.y,z + offset.z)] + mappedIndex;
     }

@@ -20,3 +20,5 @@ voxel engine:
 
     --there is a bug somewhere: sometimes program crashs on extraction(umdc)
     --CPU noise looks very smooth and nice but GPU looks bad, why ?
+
+    --implement custom GPU noise using some really fast random noise backend ? Or even port FastNoise to GPU !

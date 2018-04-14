@@ -11,6 +11,6 @@
 		
 	},
 	"dflags": ["-gc" ],
-	"lflags": ["-export-dynamic", "-L/usr/local/cuda/lib64"]
+	"lflags": ["-export-dynamic", "-L/usr/local/cuda/lib64", "-L./bindings/cmake-build-release"]
 
 }
