@@ -16,3 +16,6 @@ depends on [FastNoise](https://github.com/Auburns/FastNoise), [GLFW3](http://www
 ![height map](imgs/heightmap1.png)
 
 ![another height map](imgs/heightmap2.png)
+
+sampled on GPU(CUDA), extracted on CPU
+![cuda1](imgs/cuda_gen1.png)
