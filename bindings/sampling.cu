@@ -9,6 +9,7 @@
 #include <iostream>
 #include <zconf.h>
 #include <vector>
+#include <sys/time.h>
 
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -343,14 +344,23 @@ extern "C" void testVec3f(float3 a){
 }
 
 
-void setConstantMem();
+unsigned long long timeMs(){
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    unsigned long long millisecondsSinceEpoch =
+            (unsigned long long)(tv.tv_sec) * 1000 +
+            (unsigned long long)(tv.tv_usec) / 1000;
+
+    return millisecondsSinceEpoch;
+}
+
 
 extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage* storage){
     auto size = storage->cellCount;
 
     printf("info: ox=%f oy=%f oz=%f a=%f\n size=%d", offset.x, offset.y, offset.z, a, size);
-
-    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1024 * 1024 * 1024); //set 1G available memory
 
     std::cout << "start" << std::endl;
     std::flush(std::cout);
@@ -359,10 +369,11 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
     printf("seed=%i\n", seed);
 
+    auto t7 = timeMs();
+    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1024 * 1024 * 1024); //set 1G available memory
+
     float extent = size * a / 2;
     float ymin = offset.y;
-
-    setConstantMem();
 
     float* grid_d;
     HermiteData** edgeInfo_d;
@@ -370,12 +381,12 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
     bool* marks = static_cast<bool *>(malloc(sizeof(bool) * (size + 1) * (size + 1) * (size + 1)));
     uint* marked_d;
     HermiteData* data_d;
-
     gpuErrchk(cudaMalloc(&grid_d, sizeof(float) * (size + 2) * (size + 2) * (size + 2)));
     gpuErrchk(cudaMalloc(&edgeInfo_d, sizeof(HermiteData*) * (size + 1)*(size + 1)*(size + 1)));
     gpuErrchk(cudaMalloc(&marks_d, sizeof(bool) * (size + 1)*(size + 1)*(size + 1)));
-
     cudaMemset(edgeInfo_d, 0, sizeof(HermiteData*) * (size + 1)*(size + 1)*(size + 1));
+    auto t8 = timeMs();
+    std::cout << "memory preallocation took " << (t8 - t7) << " ms" << std::endl;
 
 
 
@@ -383,30 +394,43 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
 
     //std::cout << "before density" << std::endl;
+    auto t1 = timeMs();
     kernelLoadDensity<<<(size+2)*(size+2),(size+2)>>>(offset, a, storage_d, seed, ymin, extent);
+    gpuErrchk(cudaDeviceSynchronize());
+    auto t2 = timeMs();
+
+    std::cout << "density loading (GPU part) took " << (t2 - t1) << " ms" << std::endl;
 
 
 
     //std::cout << "after density" << std::endl;
     //std::flush(std::cout);
 
+    auto t3 = timeMs();
     markCell<<<(size+1)*(size+1),(size+1)>>>(0, storage_d, marks_d);
+    gpuErrchk(cudaDeviceSynchronize());
+    auto t4 = timeMs();
+    std::cout << "cell marking (GPU part) took " << (t4 - t3) << " ms" << std::endl;
     gpuErrchk(cudaMemcpy(marks, marks_d, sizeof(bool) * (size+1)*(size+1)*(size+1), cudaMemcpyDeviceToHost));
 
     std::vector<uint> indices;
 
+    auto t10 = timeMs();
     for (uint l = 0; l < (size+1)*(size+1)*(size+1); ++l) {
         if(marks[l]){
             indices.push_back(l);
         }
     }
+    auto t11 = timeMs();
+    std::cout << "cell marking (CPU part) took " << (t11 - t10) << " ms" << std::endl;
 
+    auto t12 = timeMs();
     gpuErrchk(cudaMalloc(&marked_d, sizeof(uint) * indices.size()));
     gpuErrchk(cudaMemcpy(marked_d, &indices[0], sizeof(uint) * indices.size(), cudaMemcpyHostToDevice));
     gpuErrchk(cudaFree(marks_d));
-
     gpuErrchk(cudaMalloc(&data_d, sizeof(HermiteData) * 3 * indices.size()));
-
+    auto t13 = timeMs();
+    std::cout << "mid allocation took " << (t13 - t12) << " ms" << std::endl;
 
 
     std::cout << "index count = " << indices.size() << std::endl;
@@ -416,64 +440,41 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
     uint invokations = indices.size() / blockSize + 1;
 
+    auto t5 = timeMs();
     loadCell<<<invokations,256>>>(0, offset, a, acc, storage_d, seed, marked_d, indices.size(), data_d, ymin, extent);
-
     gpuErrchk(cudaDeviceSynchronize());
+    auto t6 = timeMs();
+    std::cout << "hermite data loading (GPU part) took " << (t6 - t5) << " ms" << std::endl;
 
+
+    auto t15 = timeMs();
     gpuErrchk(cudaFree(marked_d));
-
-
-
     gpuErrchk(cudaMemcpy(storage->grid, storage_d.grid, sizeof(float) * (size + 2) * (size + 2) * (size + 2), cudaMemcpyDeviceToHost));
-
-    std::cout << "after grid copy" << std::endl;
-
-    std::flush(std::cout);
-
-    /*for (int k = 0; k < (size + 2) * (size + 2) * (size + 2); ++k) {
-        if(storage->grid[k] != 0.0F)
-            printf("sampled: %f\n",storage->grid[k]);
-    }*/
-
     gpuErrchk(cudaFree(grid_d));
-
-
-
-
-
-
     gpuErrchk(cudaMemcpy(storage->edgeInfo, storage_d.edgeInfo, sizeof(HermiteData*) * (size + 1) * (size + 1) * (size + 1), cudaMemcpyDeviceToHost));
 
     HermiteData* data = static_cast<HermiteData *>(malloc(sizeof(HermiteData) * 3 * indices.size())); //TODO pass back and free
-
     gpuErrchk(cudaMemcpy(data, data_d, sizeof(HermiteData) * 3 * indices.size(), cudaMemcpyDeviceToHost));
 
 
-
+    #pragma omp parallel for
     for (int j = 0; j < (size + 1)*(size + 1)*(size + 1); ++j) {
         HermiteData* ptr_d = storage->edgeInfo[j];
 
-
-        using namespace std;
         if(ptr_d){
             storage->edgeInfo[j] = (ptrdiff_t)(ptr_d - data_d) + data;
-            if((ulong)storage->edgeInfo[j] < 1000){
-                std::cout << "bad " << j << " " << ptr_d << " " << data_d << " " << data << std::endl;
-            }
-
-            //std::cout << j << " i " << dump_float3(storage->edgeInfo[j]->intersection) << std::endl;
-
-            //std::cout << j << " n " << dump_float3(storage->edgeInfo[j]->normal) << std::endl;
         }
     }
 
     gpuErrchk(cudaFree(edgeInfo_d));
     gpuErrchk(cudaFree(data_d));
+    auto t16 = timeMs();
+    std::cout << "post CPU took " << (t16 - t15) << " ms" << std::endl;
 
 }
 
 
-void setConstantMem(){
+extern "C" void setConstantMem(){
     int specialTable1_local[256][3] = {
 
 

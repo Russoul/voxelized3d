@@ -239,6 +239,7 @@ extern (C){
     }
 
     void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage!float* storage);
+    void setConstantMem(); //TODO free it ?
 
 
     void setStackSize(size_t MB);

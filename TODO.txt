@@ -8,6 +8,8 @@ library enhancements:
     --generic matrix library which should work with any slice(static + dynamic sizes)
     --jemalloc
 
+    --link with voxelizedBindings dynamically
+
 
 voxel engine:
     --test umdc, choose between umdc, uniform cubical marching squares and uniform/adaptive blocky terrain
@@ -19,3 +21,5 @@ voxel engine:
 
     --implement custom GPU noise using some really fast random noise backend ? Or even port FastNoise to GPU !
     --implement picking and on-the-fly terrain modification(without full reload)
+
+    --currently GPU sampling tooks approx as much time as CPU(multithreaded) sampling

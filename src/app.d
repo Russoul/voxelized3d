@@ -558,17 +558,19 @@ void runVoxelized(){
     StopWatch watch;
 
     
-
+    setConstantMem();
     watch.start();
     sampleGPU(cast(float3)offset, a, cast(uint)acc, &storage);//TODO malloc calls inside !
     watch.stop();
     size_t ms;
     watch.peek().split!"msecs"(ms);
     printf("GPU sampling took %d ms\n", ms);
-
-    
-
+    watch.start();
     umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
+    watch.stop();
+    watch.peek().split!"msecs"(ms);
+    printf("Whole process took %d ms", ms);
+    stdout.flush();
 
 
     
