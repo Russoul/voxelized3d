@@ -241,3 +241,23 @@ void addTriangleColorNormal(RenderVertFragDef dat, Triangle!(float, 3) tri, Vect
 
     dat.vertexCount += 3;
 }
+
+void addTriangleColorNormal(RenderVertFragDef dat, Triangle!(float, 3) tri, Triangle!(float,3) color, Vector3!float normal){
+    addFloat3(dat, tri.p1);
+    addFloat3(dat, color.p1);
+    addFloat3(dat, normal);
+
+    addFloat3(dat, tri.p2);
+    addFloat3(dat, color.p2);
+    addFloat3(dat, normal);
+
+    addFloat3(dat, tri.p3);
+    addFloat3(dat, color.p3);
+    addFloat3(dat, normal);
+
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(1 + dat.vertexCount);
+    dat.indexPool.insertBack(2 + dat.vertexCount);
+
+    dat.vertexCount += 3;
+}

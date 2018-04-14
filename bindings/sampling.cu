@@ -159,8 +159,8 @@ inline __device__ float octaveNoise(size_t octaves, float persistence, float x, 
     return total / maxValue;
 }
 
-inline __device__ float noiseFn(float3 p, int seed, float ymin, float extent){
-    auto den = octaveNoise(8, 0.85F, p.x, 0, p.z, seed)/2 * 2 * extent * 0.7F;
+inline __device__ float denFn(float3 p, int seed, float ymin, float extent){
+    auto den = (cudaNoise::repeaterPerlin(make_float3(p.x, 0, p.z), 0.5F, seed, 8, 0.85, 0.95) + 1.01 )/2 * 2 * extent * 0.7F;
     return p.y - ymin - den;
    /* auto den = denSphere(make_float3(2,2,2), 2, p);
     return den;*/
@@ -170,7 +170,7 @@ inline __device__ float noiseFn(float3 p, int seed, float ymin, float extent){
 
 inline __device__ void loadDensity(uint x, uint y, uint z, float3 offset, float a, UniformVoxelStorage storage, int seed, float ymin, float extent){
     auto p = offset + make_float3(x * a, y * a, z * a);
-    auto den = noiseFn(p, seed, ymin, extent);
+    auto den = denFn(p, seed, ymin, extent);
     //printf("%f for px=%f py=%f pz=%f x=%u y=%u z=%u i=%u a=%f size=%u\n", den, p.x, p.y, p.z, x,y,z, indexDensity(storage.cellCount, x,y,z),a,storage.cellCount);
 
 
@@ -203,8 +203,8 @@ __device__ float3 sampleSurfaceIntersection(Line3 line, uint n, int seed, float 
     for (int i = 0; i < n; ++i) {
         auto point1 = center - dir * curExt;
         auto point2 = center + dir * curExt;
-        auto den1 = fabsf(noiseFn(point1, seed, ymin, extent));
-        auto den2 = fabsf(noiseFn(point2, seed, ymin, extent));
+        auto den1 = fabsf(denFn(point1, seed, ymin, extent));
+        auto den2 = fabsf(denFn(point2, seed, ymin, extent));
 
         if(den1 <= den2){
             center = point1;
@@ -217,10 +217,10 @@ __device__ float3 sampleSurfaceIntersection(Line3 line, uint n, int seed, float 
 }
 
 __device__ float3 calculateNormal(float3 point, float eps, int seed, float ymin, float extent){
-    float d = noiseFn(point, seed, ymin, extent);
-    return normalize(make_float3(noiseFn(make_float3(point.x + eps, point.y, point.z), seed, ymin, extent) - d,
-                                 noiseFn(make_float3(point.x, point.y + eps, point.z), seed, ymin, extent) - d,
-                                 noiseFn(make_float3(point.x, point.y, point.z + eps), seed, ymin, extent) - d
+    float d = denFn(point, seed, ymin, extent);
+    return normalize(make_float3(denFn(make_float3(point.x + eps, point.y, point.z), seed, ymin, extent) - d,
+                                 denFn(make_float3(point.x, point.y + eps, point.z), seed, ymin, extent) - d,
+                                 denFn(make_float3(point.x, point.y, point.z + eps), seed, ymin, extent) - d
     ));
 }
 
@@ -356,6 +356,8 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
     std::flush(std::cout);
 
     int seed = static_cast<int>(time(NULL));
+
+    printf("seed=%i\n", seed);
 
     float extent = size * a / 2;
     float ymin = offset.y;

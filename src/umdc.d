@@ -708,7 +708,10 @@ Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref 
 
 
 bool isConstSign(float a, float b){
-    return a >= 0.0 ? b >= 0.0 : b <= 0.0; //non-strictness if very important here ! because things like absolute zero density happen !
+
+    bool ac = a < 0;
+    bool bc = b < 0; 
+    return ac == bc; //this condition must agree with config conditions
 }
 
 //outer array corresponds to each vertex to be placed inside the cell
@@ -1278,10 +1281,14 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             auto ru = minimizers[indexMinimizer(x+1,y+1,z)][3];
             auto u = minimizers[indexMinimizer(x,y+1,z)][1];
 
+            auto rc = colorizer(r);
+            auto ruc = colorizer(ru);
+            auto uc = colorizer(u);
 
 
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, r, ru), color, normal);
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, ru, u), color, normal);
+
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, r, ru), Triangle!(float,3)(color, rc, ruc), normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, ru, u), Triangle!(float,3)(color, ruc, uc), normal);
         }
 
 
@@ -1296,9 +1303,13 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             auto fu = minimizers[indexMinimizer(x,y+1,z+1)][0];
             auto u = minimizers[indexMinimizer(x,y+1,z)][2];
 
+            auto fc = colorizer(f);
+            auto fuc = colorizer(fu);
+            auto uc = colorizer(u);
 
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, f, fu), color, normal);
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, fu, u), color, normal);
+
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, f, fu), Triangle!(float,3)(color, fc, fuc), normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, fu, u), Triangle!(float,3)(color, fuc, uc), normal);
         }
 
         if(!isConstSign(d2,d6)){ //edgeId = 10
@@ -1312,8 +1323,13 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
             auto rf = minimizers[indexMinimizer(x+1,y,z+1)][8];
             auto f = minimizers[indexMinimizer(x,y,z+1)][9];
 
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, rf, r), color, normal);
-            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, f, rf), color, normal);
+
+            auto rc = colorizer(r);
+            auto rfc = colorizer(rf);
+            auto fc = colorizer(f);
+
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, rf, r), Triangle!(float,3)(color, rfc, rc), normal);
+            addTriangleColorNormal(renderTriLight, Triangle!(float,3)(minimizer, f, rf), Triangle!(float,3)(color, fc, rfc), normal);
         }
     }
 
