@@ -4,13 +4,19 @@ import std.stdio;
 import std.traits;
 import std.math;
 
+import core.simd;
+
 import util;
 import traits;
-import graphics;
+
+
 
 //stack allocated(value type semantics)
 struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
-	T[N * M] array; //stores by row, static on-stack array
+	static if (is(T == float) && N == 3 && M == 1 && is(float3))
+		float3 array;	//SIMD float3
+	else
+		T[N * M] array; //stores by row, static on-stack array
 
 
 	//indexing of a matrix
@@ -78,11 +84,10 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 
 	pragma(inline,true)
 	auto opUnary(string op)() if (op == "-"){
-		T[N * M] res;
-
-		for(size_t i = 0; i < N * M; ++i){
-			res[i] = -this.array[i];
-		}
+		static if (is(T == float) && N == 3 && M == 1 && is(float3))
+			typeof(array) res = -array;
+		else
+			typeof(array) res = -array[];
 
 		return Matrix!(T,N,M)(res);
 	}
@@ -90,11 +95,17 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
     pragma(inline,true)
 	auto opBinary(string op)(Matrix!(T,N,M) other) const{
 		static if(op == "+"){
-			T[N] res = this.array[] + other.array[];
+			static if (is(T == float) && N == 3 && M == 1 && is(float3))
+				typeof(this.array) res = this.array + other.array;
+			else
+				T[N] res = this.array[] + other.array[];
 			return Matrix!(T,N,M)(res);
 		}       
 		else static if (op == "-"){
-			T[N] res = this.array[] - other.array[];
+			static if (is(T == float) && N == 3 && M == 1 && is(float3))
+				typeof(this.array) res = this.array - other.array;
+			else
+				T[N] res = this.array[] - other.array[];
 			return Matrix!(T,N,M)(res);
 		}
 
@@ -145,7 +156,7 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 
 pragma(inline,true)
 Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
-    T[N * M] res;
+    typeof(Matrix!(T,N,M).array) res;
     foreach(i; 0..N*M){
         res[i] = traits.zero!T();
     }
@@ -244,9 +255,20 @@ alias Matrix4(T) = MatrixN!(T,4);
 
 //calculated statically (at compile time)
 auto vecS(alias val)() {
-  alias T = ForeachType!(typeof(val));
-  enum N  = val.length;
-  return Vector!(T,N)(cast(T[N]) val);
+	alias T = ForeachType!(typeof(val));
+	enum N  = val.length;
+
+	static if (is(T == float) && N == 3 && is(float3)){
+		float3 ret;
+		ret.array[0] = val[0];
+		ret.array[1] = val[1]; 
+		ret.array[2] = val[2];  
+		return Vector!(T,N)(ret);
+	}else{
+		return Vector!(T,N)(cast(typeof(Matrix!(T,N,1).array)) val);
+	}
+
+	
 }
 
 //calculated statically (at compile time)
@@ -284,7 +306,7 @@ Matrix3!T mat3(T)(T a11, T a12, T a13,
 
 pragma(inline,true)
 Matrix3!T diag3(T)(T a11, T a22, T a33){
-    auto z = traits.zero!T();
+    T z = traits.zero!T();
     return Matrix!(T,3,3)([
             a11, z, z,
             z, a22, z,

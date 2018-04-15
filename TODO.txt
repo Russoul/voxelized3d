@@ -12,9 +12,10 @@ library enhancements:
 
 
 voxel engine:
+    --ucms and acms are out of the game (they are too complex and slow)
     --test umdc, choose between umdc, uniform cubical marching squares and uniform/adaptive blocky terrain
     --try implement uniform cubical marching squares as it might be the best fit for GPU
-    --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter
+    --write(or find) .obj(or any other format that operates on triangles) to dense hermite grid converter, see Polymender
 
     --clean up GPU stuff
 
@@ -23,3 +24,18 @@ voxel engine:
     --implement picking and on-the-fly terrain modification(without full reload)
 
     --currently GPU sampling tooks approx as much time as CPU(multithreaded) sampling
+    --adaptive sampling
+    --FastNoiseSIMD
+
+    --self intersecting triangles are the result of minimizers of QEF not being inside their respective cells
+
+    --for real time manifold rendering with sharp feature preservation LOD techniques are required
+
+    LOD: https://pdfs.semanticscholar.org/bdef/64a903d6534109b29eb922fd3359ef3c0709.pdf
+    realtime raytracing of algebraic isosurfaces: https://pdfs.semanticscholar.org/7beb/42b99133f55621a432ce88b522be31325e97.pdf
+
+    So options for realtime manifold feature preserving terrain rendering:
+    1) adaptive manifold LOD-based isosurface extraction
+    2) raytracing ? NOT AN OPTION (noise functions are too general : f(x,y,z) = 0 + smooth, that is too little to sample them efficiently but raytracing implicit noisy surface would require lots of samples per ray to the find minimum intersection point)
+
+    also see https://www.cs.rice.edu/~jwarren/papers/techreport02408.pdf (more about DC, QEFs, space optimisations and polygon generation)

@@ -18,290 +18,63 @@ import graphics;
 import render;
 import hermite.uniform;
 
-//maps:
-//  0 -> 0
-//  3 -> 1
-//  8 -> 2
-size_t[12] specialTable2 = [0,1,0,1,0,1,0,1,2,2,2,2];
 
-//tells where to find an edge given cell its local(to a cell) index
-//returns zero vector if the edge is located in the given vertex(for edges {0,3,8}) else returns an (cell) offset vector ( [0..1,0..1,0..1] ) (always non-negative)
-Vector3!(size_t)[12] specialTable3 = [
-    vec3!size_t(0,0,0),
-    vec3!size_t(1,0,0),
-    vec3!size_t(0,0,1),
-    vec3!size_t(0,0,0),
 
-    vec3!size_t(0,1,0),
-    vec3!size_t(1,1,0),
-    vec3!size_t(0,1,1),
-    vec3!size_t(0,1,0),
+//function that prints special table
+/*void printSpecialTable1(){
+    string str = "[";
 
-    vec3!size_t(0,0,0),
-    vec3!size_t(1,0,0),
-    vec3!size_t(1,0,1),
-    vec3!size_t(0,0,1)
-];
+    foreach(i;0..256){
+        str ~= "\n[";
+        int[16] entries = edgeTable[i];
 
-//for each cell configuration(of 256 possible) tells if there are edges {0,3,8} in that cell, {-2} is used to stop reading the array(of 3 elements) futher
-int[3][256] specialTable1 = [
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [-2, -2, -2],
-                            [0, 3, 8],
-                            [0, -2, -2],
-                            [3, 8, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [3, -2, -2],
-                            [0, 8, -2],
-                            [0, 3, -2],
-                            [8, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [8, -2, -2],
-                            [0, 3, -2],
-                            [0, 8, -2],
-                            [3, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            [3, 8, -2],
-                            [0, -2, -2],
-                            [0, 3, 8],
-                            [-2, -2, -2],
-                            ];
+        size_t s = 0;
+
+        bool[3] set;
+        set[0] = false;
+        set[1] = false;
+        set[2] = false;
+
+        foreach(j;0..16){
+            if(entries[j] == -2){
+                if(set[0]){
+                    str ~= "0, ";
+                }
+                if(set[1]){
+                    str ~= "3, ";
+                }
+                if(set[2]){
+                    if(s == 3)
+                        str ~= "8";
+                    else
+                        str ~= "8, ";
+                }
+                while(s < 2){
+                    str ~= "-2, ";
+                    s++;
+                }
+                if(s == 2){
+                    str ~= "-2";
+                }
+                str ~= "],";
+                break;
+            }else if(entries[j] == 0){
+                s += 1;
+                set[0] = true;
+            }else if(entries[j] == 3){
+                 s += 1;
+                 set[1] = true;
+            }else if(entries[j] == 8){
+                 s += 1;
+                 set[2] = true;
+            }
+        }
+    }
+
+    writeln( str ~ "\n]" );
+}*/
+
+
 
 //in D static rectangular array is continious in memory
 //TODO move this table + edgePairs to hermite.uniform ?
@@ -565,59 +338,6 @@ int[16][256] edgeTable = [
 
                                ];
 
-//function that prints special table
-void specialTable(){
-    string str = "[";
-
-    foreach(i;0..256){
-        str ~= "\n[";
-        int[16] entries = edgeTable[i];
-
-        size_t s = 0;
-
-        bool[3] set;
-        set[0] = false;
-        set[1] = false;
-        set[2] = false;
-
-        foreach(j;0..16){
-            if(entries[j] == -2){
-                if(set[0]){
-                    str ~= "0, ";
-                }
-                if(set[1]){
-                    str ~= "3, ";
-                }
-                if(set[2]){
-                    if(s == 3)
-                        str ~= "8";
-                    else
-                        str ~= "8, ";
-                }
-                while(s < 2){
-                    str ~= "-2, ";
-                    s++;
-                }
-                if(s == 2){
-                    str ~= "-2";
-                }
-                str ~= "],";
-                break;
-            }else if(entries[j] == 0){
-                s += 1;
-                set[0] = true;
-            }else if(entries[j] == 3){
-                 s += 1;
-                 set[1] = true;
-            }else if(entries[j] == 8){
-                 s += 1;
-                 set[2] = true;
-            }
-        }
-    }
-
-    writeln( str ~ "\n]" );
-}
 
 uint[256] vertexNumTable = [
                                    0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
@@ -638,36 +358,7 @@ uint[256] vertexNumTable = [
                                    1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0
                                ];
 
-Vector3!float[8] cornerPoints = [
-                                    vecS!([0.0f,0.0f,0.0f]),
-                                    vecS!([1.0f,0.0f,0.0f]), //clockwise starting from zero y min
-                                    vecS!([1.0f,0.0f,1.0f]),
-                                    vecS!([0.0f,0.0f,1.0f]),
 
-
-                                    vecS!([0.0f,1.0f,0.0f]),
-                                    vecS!([1.0f,1.0f,0.0f]), //y max
-                                    vecS!([1.0f,1.0f,1.0f]),
-                                    vecS!([0.0f,1.0f,1.0f])
-];
-
-
-Vector2!uint[12] edgePairs = [
-                                    vecS!([0u,1u]),
-                                    vecS!([1u,2u]),
-                                    vecS!([3u,2u]),
-                                    vecS!([0u,3u]),
-
-                                    vecS!([4u,5u]),
-                                    vecS!([5u,6u]),
-                                    vecS!([7u,6u]),
-                                    vecS!([4u,7u]),
-
-                                    vecS!([4u,0u]),
-                                    vecS!([1u,5u]),
-                                    vecS!([2u,6u]),
-                                    vecS!([3u,7u]),
-];
 
 
 Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
@@ -719,11 +410,14 @@ bool isConstSign(float a, float b){
 Array!(Array!uint) whichEdgesAreSigned(uint config){
 
     int[16] entry = edgeTable[config]; //TODO inefficient coping ?
+    size_t numOfVertices = vertexNumTable[config];
     if(entry[0] == -2)
         return Array!(Array!uint)();
 
     auto result = Array!(Array!uint)();
+    result.reserve(numOfVertices);
     auto curVertex = Array!uint();
+    curVertex.reserve(3);
 
     for(size_t i = 0; i < entry.length; ++i){
         auto k = entry[i];
@@ -1185,8 +879,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
     pragma(inline,true)
     void loadCell(size_t x, size_t y, size_t z){
-        auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
-        auto bounds = cube(x,y,z);
+        //auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
 
         uint config = 0;
 
@@ -1220,6 +913,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
         if(config != 0 && config != 255){
 
             auto vertices = whichEdgesAreSigned(config);
+            auto bounds = cube(x,y,z);
 
             foreach(ref vertex; vertices){
                 auto curPlanes = Array!(Plane!float)();
@@ -1242,6 +936,11 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
                 meanPoint = meanPoint / curPlanes.length;
 
                 auto minimizer = solveQEF(curPlanes, meanPoint) + meanPoint;
+
+                // if(!checkPointInsideCube(minimizer, bounds)){ //this removes self intersecting triangles but also makes things like sharp boxes impossible
+                //     writeln("outside !");
+                //     minimizer = meanPoint;
+                // }
 
                 //writeln(minimizer);
 
@@ -1374,7 +1073,7 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
 
     watch.peek().split!"msecs"(ms);
 
-    printf("triangle deneration took %d ms\n", ms);
+    printf("triangle generation took %d ms\n", ms);
     stdout.flush();
 
 

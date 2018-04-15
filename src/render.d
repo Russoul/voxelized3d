@@ -9,6 +9,8 @@ import graphics;
 import matrix;
 import math;
 
+import hermite.uniform;
+
 
 class RenderVertFrag{
     size_t renderMode;
@@ -153,18 +155,6 @@ void addLine3Color(RenderVertFragDef dat, Line!(float, 3) line, Vector3!float co
     dat.vertexCount += 2;
 }
 
-Vector3!float[8] cornerPoints = [
-                                    vecS!([0.0f,0.0f,0.0f]),
-                                    vecS!([1.0f,0.0f,0.0f]), //clockwise starting from zero y min
-                                    vecS!([1.0f,0.0f,1.0f]),
-                                    vecS!([0.0f,0.0f,1.0f]),
-
-
-                                    vecS!([0.0f,1.0f,0.0f]),
-                                    vecS!([1.0f,1.0f,0.0f]), //y max
-                                    vecS!([1.0f,1.0f,1.0f]),
-                                    vecS!([0.0f,1.0f,1.0f])
-];
 
 void addCubeBounds(RenderVertFragDef dat, Cube!float cube, Vector3!float color){
     auto ext = Vector3!float([cube.extent, cube.extent, cube.extent]);

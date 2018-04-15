@@ -325,7 +325,7 @@ __global__ void loadCell(uint indexOffset, float3 offset, float a, uint acc, Uni
     while(curEntry != -2){
         auto corners = edgePairs[curEntry];
         Line3 edge = {cellMin + cornerPoints[corners.x] * a, cellMin + cornerPoints[corners.y] * a};
-        auto intersection = sampleSurfaceIntersection(edge, (uint)(log2f(acc) + 1), seed, ymin, extent);
+        auto intersection = sampleSurfaceIntersection(edge, acc, seed, ymin, extent);
         auto normal = calculateNormal(intersection, a / 1024.0F, seed, ymin, extent);
 
         data[3 * i_ + specialTable2[curEntry]] = {intersection, normal};
@@ -377,7 +377,7 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
 
     float* grid_d;
     HermiteData** edgeInfo_d;
-    bool* marks_d;
+    bool* marks_d; //TODO use bitmaps for more efficient storage of bools
     bool* marks = static_cast<bool *>(malloc(sizeof(bool) * (size + 1) * (size + 1) * (size + 1)));
     uint* marked_d;
     HermiteData* data_d;
@@ -441,7 +441,7 @@ extern "C" void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage*
     uint invokations = indices.size() / blockSize + 1;
 
     auto t5 = timeMs();
-    loadCell<<<invokations,256>>>(0, offset, a, acc, storage_d, seed, marked_d, indices.size(), data_d, ymin, extent);
+    loadCell<<<invokations,256>>>(0, offset, a, (uint)(log2f(acc) + 1), storage_d, seed, marked_d, indices.size(), data_d, ymin, extent);
     gpuErrchk(cudaDeviceSynchronize());
     auto t6 = timeMs();
     std::cout << "hermite data loading (GPU part) took " << (t6 - t5) << " ms" << std::endl;
