@@ -9,6 +9,7 @@ library enhancements:
     --jemalloc
 
     --link with voxelizedBindings dynamically
+    --Link Time Optimization (LTO)
 
 
 voxel engine:
