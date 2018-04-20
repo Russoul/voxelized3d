@@ -4,7 +4,7 @@ experimental 3D voxel engine
 ***REQUIRES NVIDIA VIDEO CARD(will be optional)***
 
 ________________________________________________________________________
-####INSTALLATION (LINUX + NVIDIA video card)
+#### INSTALLATION (LINUX + NVIDIA video card)
 
 1)minimum OpenGL version 3.3 is required + libGL.so should be available in your PATH
 2)install GLFW3
@@ -25,12 +25,12 @@ on ubuntu/debian:
 
 ________________________________________________________________________
 
-####INSTALLATION (Windows + NVIDIA video card)
+#### INSTALLATION (Windows + NVIDIA video card)
 Not yet tested
 ________________________________________________________________________
 
 
-####Screenshots
+#### Screenshots
 
 ![UMDC + sphere + noise (radius displacement)](imgs/umdc_sphere_displacement.png)
 
