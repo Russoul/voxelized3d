@@ -16,7 +16,7 @@ import util;
 import traits;
 import graphics;
 import render;
-import hermite.uniform;
+import hermite;
 
 
 
@@ -748,6 +748,8 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
                 auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
                 auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO division by 1024 is improper for very high sizes
 
+               
+
                 edges[specialTable2[curEntry]] = HermiteData!float(intersection, normal);
 
 
@@ -828,7 +830,7 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
     //TODO or store each HermiteData[3] piece seprately in memory(this will drastically increase cache misses => performance loss when reading)
 }
 
-void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float a, size_t accuracy, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
+void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float a, Vector3!float delegate(Vector3!float) colorizer, RenderVertFragDef renderTriLight, RenderVertFragDef renderLines){
 
     
     auto size = storage.cellCount;
@@ -925,6 +927,23 @@ void extract(ref UniformVoxelStorage!float storage, Vector3!float offset, float 
                     HermiteData!float edgeData = *indexEdge(x,y,z, edgeId);
 
                     //writeln(edgeData);
+
+                    // auto edgePair = edgePairs[edgeId];
+                    // auto start = cornerPoints[edgePair.x];
+                    // auto end = cornerPoints[edgePair.y];
+
+                    // start = start - Vector3!float([-0.5F, -0.5F, -0.5F]); //translate to the origin
+                    // end = end - Vector3!float([-0.5F, -0.5F, -0.5F]);     //
+ 
+                    // start = start * 2 * bounds.extent;                    //scale
+                    // end = end * 2 * bounds.extent;                        //
+
+                    // start = start + bounds.center;                        //translate to the bounds
+                    // end = end + bounds.center;                            //
+
+                    // auto zeroCrossingPoint = start + (end - start) * edgeData.intersection;
+
+
 
                     auto plane = Plane!float(edgeData.intersection, edgeData.normal);
 

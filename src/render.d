@@ -9,7 +9,7 @@ import graphics;
 import matrix;
 import math;
 
-import hermite.uniform;
+import hermite;
 
 
 class RenderVertFrag{

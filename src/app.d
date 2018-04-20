@@ -168,6 +168,7 @@ void main() @system
 {
     println("Running Voxelized3D...");
     //specialTable();
+
 	runVoxelized();
 }
 
@@ -551,7 +552,7 @@ void runVoxelized(){
     };
 
     //umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
-    import hermite.uniform;
+    import hermite;
 
     auto storage = UniformVoxelStorage!float(size);
 
@@ -566,7 +567,7 @@ void runVoxelized(){
     watch.peek().split!"msecs"(ms);
     printf("GPU sampling took %d ms\n", ms);
     watch.start();
-    umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
+    umdc.extract(storage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     printf("Whole process took %d ms", ms);
@@ -576,7 +577,7 @@ void runVoxelized(){
     
     // watch.start();
     // umdc.sample!(typeof(q))(q, offset, a, acc, storage);
-    // umdc.extract(storage, offset, a, acc, colorizer, rendererTrianglesLight, rendererLines);
+    // umdc.extract(storage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
     // watch.stop();
     // size_t ms;
     // watch.peek().split!"msecs"(ms);

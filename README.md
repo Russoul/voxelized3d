@@ -36,7 +36,7 @@ ________________________________________________________________________
 
 7)install LDC https://dlang.org/download.html, DUB tool should be in your path after installation
 
-8)run `dub run --build=release`
+8)run `export LD_LIBRARY_PATH=. && dub run --build=release`
 
 ________________________________________________________________________
 

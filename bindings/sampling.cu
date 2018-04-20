@@ -270,6 +270,46 @@ __global__ void markCell(uint indexOffset, UniformVoxelStorage storage, bool* ma
     }
 }
 
+
+bool operator <(float3 a, float3 b){
+    if(a.x < b.x){
+        return true;
+    }else if(a.x > b.x){
+        return false;
+    }else{
+        if(a.y < b.y){
+            return true;
+        }else if(a.y > b.y){
+            return false;
+        }else{
+            if(a.z < b.z){
+                return true;
+            }else if(a.z >= b.z){
+                return false;
+            }
+        }
+    }
+}
+
+//TODO needed ?
+//given two points in space (line): find the minimum one of two them (component-wise in lexical order) and then find floating point number alpha = sqrt((middle - min)*(middle - min)/(max - min)*(max - min))
+//used for unique alpha identification
+float makeAlphaComponent(float3 end1, float3 end2, float3 middle){
+    if(end1 < end2){//min = end1, max = end2
+        return sqrtf(dot(middle - end1,middle - end1) / dot(end2 - end1, end2 - end1));
+    }else{
+        return sqrtf(dot(middle - end2,middle - end2) / dot(end2 - end1, end2 - end1));
+    }
+}
+
+float3 makeMiddleFromAlphaComponent(float3 end1, float3 end2, float alpha){
+    if(end1 < end2){
+        return end1 + normalize(end2 - end1) * alpha;
+    }else{
+        return end2 + normalize(end2 - end1) * alpha;
+    }
+}
+
 __global__ void loadCell(uint indexOffset, float3 offset, float a, uint acc, UniformVoxelStorage storage, int seed, uint* marked, uint markedLen, HermiteData* data, float ymin, float extent){
     uint i_ = blockIdx.x * blockDim.x + threadIdx.x + indexOffset;
 
@@ -327,6 +367,7 @@ __global__ void loadCell(uint indexOffset, float3 offset, float a, uint acc, Uni
         Line3 edge = {cellMin + cornerPoints[corners.x] * a, cellMin + cornerPoints[corners.y] * a};
         auto intersection = sampleSurfaceIntersection(edge, acc, seed, ymin, extent);
         auto normal = calculateNormal(intersection, a / 1024.0F, seed, ymin, extent);
+
 
         data[3 * i_ + specialTable2[curEntry]] = {intersection, normal};
 

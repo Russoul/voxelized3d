@@ -1,4 +1,4 @@
-module hermite.uniform;
+module hermite;
 
 
 import std.math;
@@ -339,8 +339,9 @@ Vector2!uint[12] edgePairs = [
 
 //uniform hermite data
 struct HermiteData(T){ //one of those for each edge that exhibits a sign change
-    Vector3!float intersection;
-    Vector3!float normal;
+    Vector3!T intersection;
+    //T intersection; //alpha component along the edge, [0;1]
+    Vector3!T normal;
 }
 
 struct UniformVoxelStorage(T){
@@ -371,11 +372,58 @@ struct UniformVoxelStorage(T){
         // foreach(i; 0..(cellCount + 1)*(cellCount + 1)*(cellCount + 1)){
         //     free(edgeInfo[i]);
         // }
-        //clearing dependends on sampling method ! on gpu its monolith array, on cpu its scattered arrays each of them needs to be freed
+        //clearing depends on sampling method ! on gpu its monolith array, on cpu its scattered arrays each of them needs to be freed
 
 
         free(edgeInfo);
     }
+}
+
+
+struct QEF(T){
+    T a11;
+    T a12;
+    T a13;
+    T a22;
+    T a23;
+    T a33;
+
+    T b1;
+    T b2;
+    T b3;
+
+    T r;
+
+    Vector3!T massPoint;
+
+    ubyte n; //mass dimension
+}
+
+struct InteriorNode(T){
+    ubyte depth;
+
+    ubyte cornerSigns; //signs or corner points (0 bit - negative, 1 bit - positive)
+    QEF!T qef; //merged qef
+    void*[8] children; //void* can be any of 3 kind of nodes
+}
+
+struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if possible)
+    ubyte depth;
+
+    bool isPositive; //sign of the corner samples
+}
+
+struct HeterogeneousNode(T){
+    ubyte depth;
+
+    ubyte cornerSigns; //signs or corner points (0 bit - negative, 1 bit - positive)
+    //QEF!T qef;
+    HermiteDataCompact!(T)*[12] hermiteData; //for each edge, set to null's automatically
+
+}
+
+struct AdaptiveVoxelStorage(T){
+
 }
 
 

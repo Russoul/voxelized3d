@@ -224,7 +224,7 @@ extern (C){
     @nogc FN_DECIMAL getValue(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z);
 
 
-    import hermite.uniform;
+    import hermite;
 
 
    /* struct UniformVoxelStorageC{ //TODO can we get around using this extra struct ?
