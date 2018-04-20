@@ -399,31 +399,45 @@ struct QEF(T){
     ubyte n; //mass dimension
 }
 
-struct InteriorNode(T){
-    ubyte depth;
+ubyte NODE_TYPE_INTERIOR = 1;
+ubyte NODE_TYPE_HOMOGENEOUS = 2;
+ubyte NODE_TYPE_HETEROGENEOUS = 3;
 
-    ubyte cornerSigns; //signs or corner points (0 bit - negative, 1 bit - positive)
+
+struct Node(T){//used just to avoid void* and store Node type(avoiding polymorphism)
+    ubyte __node_type__;
+    ubyte depth; //INVERTED! depth
+} 
+
+struct InteriorNode(T){
+    ubyte __node_type__ = NODE_TYPE_INTERIOR;
+    ubyte depth; //INVERTED! depth
+
+    ubyte cornerSigns; //signs or corner points (1 bit - negative, 0 bit - positive)
     QEF!T qef; //merged qef
-    void*[8] children; //void* can be any of 3 kind of nodes
+    Node!(T)*[8] children; //Node* can be any of 3 kind of nodes
 }
 
 struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if possible)
-    ubyte depth;
+    ubyte __node_type__ = NODE_TYPE_HOMOGENEOUS;
+    ubyte depth; //INVERTED! depth
 
     bool isPositive; //sign of the corner samples
 }
 
 struct HeterogeneousNode(T){
-    ubyte depth;
+    ubyte __node_type__ = NODE_TYPE_HETEROGENEOUS;
+    ubyte depth; //INVERTED! depth
 
-    ubyte cornerSigns; //signs or corner points (0 bit - negative, 1 bit - positive)
+    ubyte cornerSigns; //signs or corner points (1 bit - negative, 0 bit - positive or zero)
     //QEF!T qef;
     HermiteDataCompact!(T)*[12] hermiteData; //for each edge, set to null's automatically
 
 }
 
 struct AdaptiveVoxelStorage(T){
-
+    uint cellCount; //cell count in one axis in dense uniform grid (when maximum tree depth is reached)
+    Node!(T)* root;
 }
 
 
