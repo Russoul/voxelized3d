@@ -35,28 +35,5 @@ extern "C" {
     FN_DECIMAL getPerlin(void* noise, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z){
         return ((FastNoise*)noise)->GetValue(x,y,z);
     }
+
 };
-
-#include <sys/resource.h>
-
-extern "C" void setStackSize(size_t MB)
-{
-    const rlim_t kStackSize = MB * 1024 * 1024;   // min stack size = 16 MB
-    struct rlimit rl;
-    int result;
-
-    result = getrlimit(RLIMIT_STACK, &rl);
-    if (result == 0)
-    {
-        if (rl.rlim_cur < kStackSize)
-        {
-            rl.rlim_cur = kStackSize;
-            result = setrlimit(RLIMIT_STACK, &rl);
-            if (result != 0)
-            {
-                fprintf(stderr, "setrlimit returned result = %d\n", result);
-            }
-        }
-    }
-
-}

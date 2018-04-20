@@ -11,6 +11,11 @@ library enhancements:
     --link with voxelizedBindings dynamically
     --Link Time Optimization (LTO)
 
+    --create compilation instructions:
+
+    sudo apt-get install liblapacke-dev
+    sudo apt-get install libglfw3-dev
+
 
 voxel engine:
     --ucms and acms are out of the game (they are too complex and slow)

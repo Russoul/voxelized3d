@@ -78,31 +78,8 @@ struct Program{
 alias GLFWglproc = void function();
 alias GLADloadproc = void* function(const char *);
 
-extern (C) void glfwInit();
-extern (C) void glfwWindowHint(size_t enum_, size_t val);
-extern (C) GlfwWindow* glfwCreateWindow(size_t width, size_t height, const char* title, void* ptr1, void* ptr2);
-extern (C) void glfwTerminate();
-extern (C) void glfwMakeContextCurrent(GlfwWindow* win);
 extern (C) void glViewport(size_t x, size_t y, size_t width, size_t height);
-extern (C) void glfwSetFramebufferSizeCallback(GlfwWindow* win, void function(GlfwWindow*,size_t,size_t));
-extern (C) GLFWglproc glfwGetProcAddress(const char* procName);
 extern (C) int gladLoadGLLoader(GLADloadproc);
-extern (C) void glfwSetKeyCallback(GlfwWindow* win, void function(GlfwWindow*,int,int,int,int) callback);
-extern (C) void glfwSetMouseButtonCallback(GlfwWindow* win, void function(GlfwWindow*, int,int,int) callback);
-extern (C) void glfwSetErrorCallback(void function(int, const char*) callback);
-extern (C) bool glfwWindowShouldClose(GlfwWindow* win);
-extern (C) void glfwSwapBuffers(GlfwWindow* win);
-extern (C) void glfwPollEvents();
-extern (C) size_t glfwGetKey(const (GlfwWindow*) win, int key);
-extern (C) int glfwGetMouseButton(const (GlfwWindow*) win, int button);
-extern (C) void glfwSetWindowShouldClose(GlfwWindow* win, bool shouldClose);
-extern (C) void glfwSetInputMode(GlfwWindow* win, size_t mode, int value);
-extern (C) void glfwGetCursorPos(GlfwWindow* win, double* x, double* y);
-extern (C) void glfwGetWindowSize(GlfwWindow* win, size_t* w, size_t* h);
-extern (C) GlfwVidMode* glfwGetVideoMode(GlfwMonitor* mon);
-extern (C) GlfwMonitor* glfwGetPrimaryMonitor();
-extern (C) void glfwSetWindowPos(GlfwWindow* win, size_t x, size_t y);
-extern (C) void glfwSwapInterval(int mode);
 extern (C) void glClearColor(float r, float g, float b, float a);
 extern (C) void glClear(size_t val);
 extern (C) const (char)* glGetString(size_t val);
@@ -139,6 +116,30 @@ extern (C) void glUniformMatrix4fv(int loc, size_t count, bool transpose, const(
 extern (C) void glUseProgram(size_t id);
 extern (C) void glGetIntegerv(size_t param, int* value);
 extern (C) size_t glGetError();
+
+extern (C) void glfwInit();
+extern (C) void glfwWindowHint(size_t enum_, size_t val);
+extern (C) GlfwWindow* glfwCreateWindow(size_t width, size_t height, const char* title, void* ptr1, void* ptr2);
+extern (C) void glfwTerminate();
+extern (C) void glfwMakeContextCurrent(GlfwWindow* win);
+extern (C) void glfwSetFramebufferSizeCallback(GlfwWindow* win, void function(GlfwWindow*,size_t,size_t));
+extern (C) GLFWglproc glfwGetProcAddress(const char* procName);
+extern (C) void glfwSetKeyCallback(GlfwWindow* win, void function(GlfwWindow*,int,int,int,int) callback);
+extern (C) void glfwSetMouseButtonCallback(GlfwWindow* win, void function(GlfwWindow*, int,int,int) callback);
+extern (C) void glfwSetErrorCallback(void function(int, const char*) callback);
+extern (C) bool glfwWindowShouldClose(GlfwWindow* win);
+extern (C) void glfwSwapBuffers(GlfwWindow* win);
+extern (C) void glfwPollEvents();
+extern (C) size_t glfwGetKey(const (GlfwWindow*) win, int key);
+extern (C) int glfwGetMouseButton(const (GlfwWindow*) win, int button);
+extern (C) void glfwSetWindowShouldClose(GlfwWindow* win, bool shouldClose);
+extern (C) void glfwSetInputMode(GlfwWindow* win, size_t mode, int value);
+extern (C) void glfwGetCursorPos(GlfwWindow* win, double* x, double* y);
+extern (C) void glfwGetWindowSize(GlfwWindow* win, size_t* w, size_t* h);
+extern (C) GlfwVidMode* glfwGetVideoMode(GlfwMonitor* mon);
+extern (C) GlfwMonitor* glfwGetPrimaryMonitor();
+extern (C) void glfwSetWindowPos(GlfwWindow* win, size_t x, size_t y);
+extern (C) void glfwSwapInterval(int mode);
 
 // ============ C standard library =======================
 //extern (C) void memset(void* ptr, ubyte set, size_t n);

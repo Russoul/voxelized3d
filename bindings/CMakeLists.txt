@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.9)
 project(voxelizedBindings)
 
 set(CMAKE_CXX_STANDARD 11)
 
 set(CMAKE_C_COMPILER=/usr/bin/clang)
-set(CMAKE_CXX_COMPILER=/usr/bin/clang)
+set(CMAKE_CXX_COMPILER=/usr/bin/clang++)
 
-include_directories(../native/include)
+include_directories(include)
 
 find_package(CUDA QUIET REQUIRED)
 
@@ -14,11 +14,11 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 
-set(
-        CUDA_NVCC_FLAGS
-        ${CUDA_NVCC_FLAGS};
-        -arch=compute_30 -rdc=false -lcudadevrt -Xptxas -O3 -Xcompiler -O3# not needed for static lib
-)
+#set(
+#        CUDA_NVCC_FLAGS
+#        ${CUDA_NVCC_FLAGS};
+#        -arch=compute_30 -rdc=false -lcudadevrt -Xptxas -O3 -Xcompiler -O3# not needed for static lib
+#)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -35,4 +35,6 @@ if (OPENMP_FOUND)
 
 endif()
 
-cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1") //SIMD noise (not used for now)
+
+cuda_add_library(voxelizedBindings SHARED helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c)

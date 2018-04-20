@@ -8,10 +8,8 @@
 	"license": "MIT",
 	"libs": [
 		"GL",
-		"glad",
-		"glfw3",
+		"glfw",
 		"stdc++",
-		"FastNoise",
 		"gomp",
 		"cudart_static",
 		"cudadevrt",
@@ -22,11 +20,12 @@
 	],
 	"dependencies": {},
 	"dflags": [
-		"-gc", "-O3"
+		
 	],
 	"lflags": [
 		"-export-dynamic",
 		"-L/usr/local/cuda/lib64",
-		"-L./bindings/cmake-build-release"
+		"-L/usr/local/lib",
+		"-L."
 	]
 }
