@@ -7,20 +7,35 @@ ________________________________________________________________________
 #### INSTALLATION (LINUX + NVIDIA video card)
 
 1)minimum OpenGL version 3.3 is required + libGL.so should be available in your PATH
+
 2)install GLFW3
-on ubuntu/debian it should be as simple as:
-`sudo apt-get install libglfw3-dev`
-or compile glfw3 from sources
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on ubuntu/debian it should be as simple as:
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sudo apt-get install libglfw3-dev`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;or compile glfw3 from sources
+
 3)CUDA is required (probably will be optional later), PATH also must be properly set
+
 4)lapacke:
-on ubuntu/debian:
-`sudo apt-get install liblapacke-dev`
-or compile from sources
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on ubuntu/debian:
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sudo apt-get install liblapacke-dev`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;or compile from sources
+
 5)install cmake(probably with GUI for simplicity)
-on ubuntu/debian:
-`sudo apt-get install cmake-gui`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on ubuntu/debian:
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sudo apt-get install cmake-gui`
+
 6)compile cmake project in `bindings` directory of this project. After that copy outputted `libvoxelizedBindings.so` to the root of the project
+
 7)install LDC https://dlang.org/download.html, DUB tool should be in your path after installation
+
 8)run `dub run --build=release`
 
 ________________________________________________________________________
