@@ -211,7 +211,7 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
     
     auto curDepth = 0;
 
-    while(blockCount != 1){
+    while(curSize != 1){
         curSize /= 2;
         curDepth += 1;
 
@@ -219,7 +219,7 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
         sparseGrid.reserve(curSize * curSize * curSize);
         sparseGrid.length = (curSize * curSize * curSize);
 
-        foreach(i; parallel(iota(0, blockCount * blockCount * blockCount ))){
+        foreach(i; parallel(iota(0, curSize * curSize * curSize ))){
             auto z = i / curSize / curSize;
             auto y = i / curSize % curSize;
             auto x = i % curSize;
