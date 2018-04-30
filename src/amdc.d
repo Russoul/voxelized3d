@@ -43,7 +43,7 @@ Array!uint whichEdgesAreSignedAll(uint config){//TODO make special table for thi
     return edges;
 }
 
-void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t accuracy){
+Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t accuracy){
 
 
 
@@ -145,8 +145,8 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
 
     pragma(inline,true)
-    void adapt(size_t i, size_t j, size_t k, ref Array!(Node!(float)*) sparseGrid,
-     ref Array!(Node!(float)*) denseGrid, size_t curSize, size_t curDepth){
+    void simplify(size_t i, size_t j, size_t k, ref Array!(Node!(float)*) sparseGrid,
+     ref Array!(Node!(float)*) denseGrid, size_t curSize, size_t curDepth){//depth is inverted
 
         auto n0 = denseGrid[indexCell(2*i, 2*j, 2*k, 2*curSize)];
         auto n1 = denseGrid[indexCell(2*i+1, 2*j, 2*k, 2*curSize)];
@@ -206,4 +206,34 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
         loadCell(x,y,z);
     }
+
+    auto curSize = size;
+    
+    auto curDepth = 0;
+
+    while(blockCount != 1){
+        curSize /= 2;
+        curDepth += 1;
+
+        Array!(Node!(float)*) sparseGrid = Array!(Node!(float)*)();
+        sparseGrid.reserve(curSize * curSize * curSize);
+        sparseGrid.length = (curSize * curSize * curSize);
+
+        foreach(i; parallel(iota(0, blockCount * blockCount * blockCount ))){
+            auto z = i / curSize / curSize;
+            auto y = i / curSize % curSize;
+            auto x = i % curSize;
+
+            simplify(x,y,z, sparseGrid, grid, curSize, curDepth);
+
+            
+        }
+
+        grid = sparseGrid;
+    }
+
+    Node!(float)* tree = grid[0]; //grid contains only one element here
+
+    return tree;
+
 }
