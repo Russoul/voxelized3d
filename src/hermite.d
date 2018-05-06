@@ -409,7 +409,7 @@ struct QEF(T){
 
     Vector3!T massPoint;
 
-    ubyte n; //mass dimension
+    ubyte n; //mass point dimension
 }
 
 const ubyte NODE_TYPE_INTERIOR = 1;
@@ -432,7 +432,6 @@ struct InteriorNode(T){
 }
 
 
-//Leaf node
 struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if possible)
     ubyte __node_type__ = NODE_TYPE_HOMOGENEOUS;
     ubyte depth; //INVERTED! depth
@@ -447,9 +446,11 @@ struct HeterogeneousNode(T){
 
     ubyte cornerSigns; //signs or corner points (1 bit - negative, 0 bit - positive or zero)
     //same as config in umdc
-    //QEF!T qef;
-    HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
 
+
+    QEF!T qef;
+    HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
+    uint index;//index into vertexBuffer of all minimizers (see how it is done in secret sause, prob remove it from here)
 }
 
 struct AdaptiveVoxelStorage(T){

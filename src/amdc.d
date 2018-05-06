@@ -268,13 +268,92 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
 }
 
+
+Vector3!float solveQEF(ref QEF!float qef){
+
+    auto A = mat3!float(
+        qef.a11, qef.a12, qef.a13,
+        qef.a12, qef.a22, qef.a23,
+        qef.a13, qef.a23, qef.a33
+    );
+
+    auto b = vec3!float(qef.b1, qef.b2, qef.b3);
+
+    auto U = zero!(float,3,3);
+    auto VT = U;
+
+    auto S = zero!(float,3,1);
+
+    float[2] cache;
+
+    import lapacke;
+    auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = diag3(S[0], S[1], S[2]);
+
+    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
+
+    auto minimizer = mult(pinv, b);
+
+
+    return minimizer;
+
+}
+
+void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!float) vertexBuffer){
+    foreachHeterogeneousLeaf!((node, bounds) => {
+        auto minimizer = solveQEF((*node).qef);
+        vertexBuffer.insertBack(minimizer);
+        (*node).index = cast(uint) vertexBuffer.length - 1;
+    })(node, bounds);
+}
+
+
+auto faceProcTable = edgePairs;
+
+void faceProc(Node!(float)* a, Node!(float)* b){
+
+}
+
+void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d){
+
+}
+
+void cellProc(Node!(float)* node){
+    switch(nodeType(node)){
+        case NODE_TYPE_INTERIOR:
+            auto interior = cast( InteriorNode!(float)* ) node;
+            auto ch = (*interior).children;
+
+            foreach(i;0..8){
+                auto c = ch[i];
+                cellProc(c);
+            }
+
+            foreach(i;0..12){
+                auto pair = faceProcTable[i];
+                faceProc(ch[pair[0]], ch[pair[1]]);
+            }
+
+            //TODO edgeProc
+
+            break;
+            
+        default: break;
+    }
+}
+
 void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
     final switch(nodeType(node)){
-        case NODE_TYPE_HOMOGENEOUS:
-            break;
-        case NODE_TYPE_HETEROGENEOUS:
-            f( cast(HeterogeneousNode!float*)  node, bounds);
-            break;
         case NODE_TYPE_INTERIOR:
             auto interior = cast( InteriorNode!(float)* ) node;
             auto ch = (*interior).children;
@@ -287,6 +366,12 @@ void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
                 foreachHeterogeneousLeaf!(f)(c, newBounds);
             }
             break;
-            
+
+        case NODE_TYPE_HOMOGENEOUS:
+            break;
+        case NODE_TYPE_HETEROGENEOUS:
+            f( cast(HeterogeneousNode!float*)  node, bounds);
+            break;
+
     }
 }

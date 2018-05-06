@@ -526,9 +526,9 @@ Vector3!float solveQEF(const ref Array!(Plane!float) planes, Vector3!float centr
 
     auto bf = vec3!float(Ab[3], Ab[7], Ab[11]);
 
-    auto minimizer1 = zero!(float,3,1);
+    /*auto minimizer1 = zero!(float,3,1);
 
-    solveRxb(Af, bf, minimizer1);
+    solveRxb(Af, bf, minimizer1);*/
 
 
 
