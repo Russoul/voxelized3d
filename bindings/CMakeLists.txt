@@ -37,4 +37,6 @@ endif()
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1") //SIMD noise (not used for now)
 
-cuda_add_library(voxelizedBindings SHARED helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c)
+cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c)
+
+install(TARGETS voxelizedBindings DESTINATION /usr/local/lib)

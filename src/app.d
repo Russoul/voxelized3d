@@ -19,6 +19,8 @@ import render;
 import math;
 import umdc;
 
+import amdc;
+
 
 
 extern(C) void errorCallback(int code, const char* error) {
@@ -554,24 +556,24 @@ void runVoxelized(){
     //umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
     import hermite;
 
-    auto storage = UniformVoxelStorage!float(size);
+    // auto storage = UniformVoxelStorage!float(size);
 
-    StopWatch watch;
+    // StopWatch watch;
 
     
-    setConstantMem();
-    watch.start();
-    sampleGPU(cast(float3)offset, a, cast(uint)acc, &storage);//TODO malloc calls inside !
-    watch.stop();
-    size_t ms;
-    watch.peek().split!"msecs"(ms);
-    printf("GPU sampling took %d ms\n", ms);
-    watch.start();
-    umdc.extract(storage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
-    watch.stop();
-    watch.peek().split!"msecs"(ms);
-    printf("Whole process took %d ms", ms);
-    stdout.flush();
+    // setConstantMem();
+    // watch.start();
+    // sampleGPU(cast(float3)offset, a, cast(uint)acc, &storage);//TODO malloc calls inside !
+    // watch.stop();
+    // size_t ms;
+    // watch.peek().split!"msecs"(ms);
+    // printf("GPU sampling took %d ms\n", ms);
+    // watch.start();
+    // umdc.extract(storage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
+    // watch.stop();
+    // watch.peek().split!"msecs"(ms);
+    // printf("Whole process took %d ms", ms);
+    // stdout.flush();
 
 
     
@@ -583,6 +585,14 @@ void runVoxelized(){
     // watch.peek().split!"msecs"(ms);
     // printf("Whole process took %d ms", ms);
     // stdout.flush();
+
+    auto tree = sample!(typeof(q))(q, offset, a, size, acc);
+
+    auto fhet = (HeterogeneousNode!float* node, Cube!float bounds){
+        addCubeBounds(rendererLines, bounds, green);
+    };
+
+    foreachHeterogeneousLeaf!(fhet)(tree, bounds);
 
 
     freeFastNoise(noise);

@@ -319,6 +319,19 @@ Vector3!float[8] cornerPoints = [
                                     vecS!([0.0f,1.0f,1.0f])
 ];
 
+Vector3!float[8] cornerPointsOrigin = [
+                                    vecS!([-1.0f,-1.0f,-1.0f]),
+                                    vecS!([1.0f,-1.0f,-1.0f]), //clockwise starting from zero y min
+                                    vecS!([1.0f,-1.0f,1.0f]),
+                                    vecS!([-1.0f,-1.0f,1.0f]),
+
+
+                                    vecS!([-1.0f,1.0f,-1.0f]),
+                                    vecS!([1.0f,1.0f,-1.0f]), //y max
+                                    vecS!([1.0f,1.0f,1.0f]),
+                                    vecS!([-1.0f,1.0f,1.0f])
+];
+
 
 Vector2!uint[12] edgePairs = [
                                     vecS!([0u,1u]),
@@ -399,9 +412,9 @@ struct QEF(T){
     ubyte n; //mass dimension
 }
 
-ubyte NODE_TYPE_INTERIOR = 1;
-ubyte NODE_TYPE_HOMOGENEOUS = 2;
-ubyte NODE_TYPE_HETEROGENEOUS = 3;
+const ubyte NODE_TYPE_INTERIOR = 1;
+const ubyte NODE_TYPE_HOMOGENEOUS = 2;
+const ubyte NODE_TYPE_HETEROGENEOUS = 3;
 
 
 struct Node(T){//used just to avoid void* and store Node type(avoiding polymorphism)
@@ -418,6 +431,8 @@ struct InteriorNode(T){
     Node!(T)*[8] children; //Node* can be any of 3 kind of nodes
 }
 
+
+//Leaf node
 struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if possible)
     ubyte __node_type__ = NODE_TYPE_HOMOGENEOUS;
     ubyte depth; //INVERTED! depth
@@ -425,13 +440,15 @@ struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if poss
     bool isPositive; //sign of the corner samples
 }
 
+//Leaf node
 struct HeterogeneousNode(T){
     ubyte __node_type__ = NODE_TYPE_HETEROGENEOUS;
     ubyte depth; //INVERTED! depth
 
     ubyte cornerSigns; //signs or corner points (1 bit - negative, 0 bit - positive or zero)
+    //same as config in umdc
     //QEF!T qef;
-    HermiteDataCompact!(T)*[12] hermiteData; //for each edge, set to null's automatically
+    HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
 
 }
 
@@ -440,4 +457,8 @@ struct AdaptiveVoxelStorage(T){
     Node!(T)* root;
 }
 
+
+ubyte nodeType(T)(Node!(T)* node){
+    return (*node).__node_type__;
+}
 

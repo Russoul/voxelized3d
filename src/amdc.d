@@ -10,6 +10,8 @@ import std.datetime.stopwatch;
 import std.parallelism;
 import std.range;
 
+import core.stdc.stdlib : malloc;
+
 import math;
 import matrix;
 import util;
@@ -43,11 +45,17 @@ Array!uint whichEdgesAreSignedAll(uint config){//TODO make special table for thi
     return edges;
 }
 
-Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t accuracy){
+Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy){
 
 
 
-    auto size = storage.cellCount;
+    auto size = cellCount;
+
+
+    Array!ubyte signedGrid = Array!(ubyte)(); //TODO bit fields ?
+    signedGrid.reserve((size + 1) * (size + 1) * (size + 1));
+    signedGrid.length = (size + 1) * (size + 1) * (size + 1);
+    
 
     Array!(Node!(float)*) grid = Array!(Node!(float)*)();
     grid.reserve(size * size * size);
@@ -59,10 +67,6 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
         return z * (size + 1) * (size + 1) + y * (size + 1) + x;
     }
 
-    pragma(inline,true)
-    size_t indexCell(size_t x, size_t y, size_t z){
-        return z * size * size + y * size + x;
-    }
 
     pragma(inline,true)
     size_t indexCell(size_t x, size_t y, size_t z, size_t s = size){
@@ -75,54 +79,68 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
         return Cube!float(offset + Vector3!float([(x + 0.5F)*a, (y + 0.5F) * a, (z + 0.5F) * a]), a / 2.0F);
     }
 
+    pragma(inline, true)
+    void sampleGridAt(size_t x, size_t y, size_t z){
+        auto p = offset + vec3!float(x * a, y * a, z * a);
+        auto s = f(p);
+        ubyte b = 0;
+        if(s < 0.0){
+            b = 1;
+        }
+        signedGrid[indexDensity(x,y,z)] = b;
+    }
+
 
     pragma(inline,true)
     void loadCell(size_t x, size_t y, size_t z){
 
         auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
-        auto bounds = cube(x,y,z);
+        immutable auto bounds = cube(x,y,z);
 
-        uint config = 0;
+        uint config;
 
 
-        if(storage.grid[indexDensity(x,y,z)] < 0.0){
+        if(signedGrid[indexDensity(x,y,z)]){
             config |= 1;
         }
-        if(storage.grid[indexDensity(x+1,y,z)] < 0.0){
+        if(signedGrid[indexDensity(x+1,y,z)]){
             config |= 2;
         }
-        if(storage.grid[indexDensity(x+1,y,z+1)] < 0.0){
+        if(signedGrid[indexDensity(x+1,y,z+1)]){
             config |= 4;
         }
-        if(storage.grid[indexDensity(x,y,z+1)] < 0.0){
+        if(signedGrid[indexDensity(x,y,z+1)]){
             config |= 8;
         }
 
-        if(storage.grid[indexDensity(x,y+1,z)] < 0.0){
+        if(signedGrid[indexDensity(x,y+1,z)]){
             config |= 16;
         }
-        if(storage.grid[indexDensity(x+1,y+1,z)] < 0.0){
+        if(signedGrid[indexDensity(x+1,y+1,z)]){
             config |= 32;
         }
-        if(storage.grid[indexDensity(x+1,y+1,z+1)] < 0.0){
+        if(signedGrid[indexDensity(x+1,y+1,z+1)]){
             config |= 64;
         }
-        if(storage.grid[indexDensity(x,y+1,z+1)] < 0.0){
+        if(signedGrid[indexDensity(x,y+1,z+1)]){
             config |= 128;
         }
 
         if(config == 0){ //fully outside
-            auto n = cast(HomogeneousNode!T*) malloc(HomogeneousNode!(T).sizeof);
+            auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
+            (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = true;
-            data[indexCell(x,y,z)] = cast(Node*)n;
+            grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else if(config == 255){ //fully inside
-            auto n = cast(HomogeneousNode!T*) malloc(HomogeneousNode!(T).sizeof);
+            auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
+            (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = false;
-            data[indexCell(x,y,z)] = cast(Node*)n;
+            grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else{ //heterogeneous
-            auto edges = whichEdgesAreSignedAll[config];
+            auto edges = whichEdgesAreSignedAll(config);
 
-            auto n = cast(HeterogeneousNode!T*) malloc(HeterogeneousNode!(T).sizeof);
+            auto n = cast(HeterogeneousNode!float*) malloc(HeterogeneousNode!(float).sizeof);
+            (*n).__node_type__ = NODE_TYPE_HETEROGENEOUS;
 
             foreach(curEntry; edges){
                 import core.stdc.stdlib : malloc;
@@ -136,8 +154,10 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
                 *data = HermiteData!float(intersection, normal);
                 (*n).hermiteData[curEntry] = data;
-                (*n).cornerSigns = config;
+                (*n).cornerSigns = cast(ubyte) config;
             }
+
+            grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }
 
 
@@ -158,16 +178,17 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
         auto n6 = denseGrid[indexCell(2*i+1, 2*j+1, 2*k+1, 2*curSize)];
         auto n7 = denseGrid[indexCell(2*i, 2*j+1, 2*k+1, 2*curSize)];
 
-        Node*[8] nodes = [n0,n1,n2,n3,n4,n5,n6,n7];
+        Node!(float)*[8] nodes = [n0,n1,n2,n3,n4,n5,n6,n7];
 
         bool inited = false;
         bool isPositive;
 
         pragma(inline, true)
         void setInterior(){
-            auto interior = cast(InteriorNode!(T)*) malloc(InteriorNode!(T).sizeof);
+            auto interior = cast(InteriorNode!(float)*) malloc(InteriorNode!(float).sizeof);
             (*interior).children = nodes;
-            (*interior).depth = curDepth;
+            (*interior).depth = cast(ubyte) curDepth;
+            (*interior).__node_type__ = NODE_TYPE_INTERIOR;
 
             sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)interior;
         }
@@ -191,13 +212,22 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
         }
 
         //all cells are fully in or out
-        auto homo = cast(HomogeneousNode!(T)*) malloc(HomogeneousNode!(T).sizeof);
-        *(homo).isPositive = isPositive; 
-        (*homo).depth = curDepth;
+        auto homo = cast(HomogeneousNode!(float)*) malloc(HomogeneousNode!(float).sizeof);
+        (*homo).isPositive = isPositive; 
+        (*homo).depth = cast(ubyte) curDepth;
+        (*homo).__node_type__ = NODE_TYPE_HOMOGENEOUS;
 
         sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)homo;
     }
 
+
+    foreach(i; parallel(iota(0, (size+1) * (size+1) * (size+1) ))){
+        auto z = i / (size+1) / (size+1);
+        auto y = i / (size+1) % (size+1);
+        auto x = i % (size+1);
+
+        sampleGridAt(x,y,z);
+    }
 
     foreach(i; parallel(iota(0, size * size * size ))){
         auto z = i / size / size;
@@ -236,4 +266,27 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
     return tree;
 
+}
+
+void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
+    final switch(nodeType(node)){
+        case NODE_TYPE_HOMOGENEOUS:
+            break;
+        case NODE_TYPE_HETEROGENEOUS:
+            f( cast(HeterogeneousNode!float*)  node, bounds);
+            break;
+        case NODE_TYPE_INTERIOR:
+            auto interior = cast( InteriorNode!(float)* ) node;
+            auto ch = (*interior).children;
+
+            foreach(i;0..8){
+                auto c = ch[i];
+                auto tr = cornerPointsOrigin[i] * bounds.extent / 2;
+                auto newBounds = Cube!(float)(bounds.center + tr, bounds.extent/2);
+
+                foreachHeterogeneousLeaf!(f)(c, newBounds);
+            }
+            break;
+            
+    }
 }
