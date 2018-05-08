@@ -45,6 +45,94 @@ Array!uint whichEdgesAreSignedAll(uint config){//TODO make special table for thi
     return edges;
 }
 
+
+void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, out QEF!float qef){
+    auto n = planes.length;
+    auto Ab = Array!float();
+    Ab.reserve(n * 4);
+    Ab.length = n * 4;
+
+    import lapacke;
+
+    for(size_t i = 0; i < n; ++i){
+        Ab[4*i]   = planes[i].normal.x;
+        Ab[4*i+1] = planes[i].normal.y;
+        Ab[4*i+2] = planes[i].normal.z;
+
+        Ab[4*i+3] = planes[i].normal.dot(planes[i].point - centroid);
+    }
+
+    
+
+    float[4] tau;
+
+
+    LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
+
+    auto A = zero!(float,3,3)();
+    for(size_t i = 0; i < 3; ++i){
+        for(size_t j = i; j < 3; ++j){
+            A[i,j] = Ab[4*i + j];
+        }
+    }
+
+    auto b = vec3!float(Ab[3], Ab[7], Ab[11]);
+
+    qef.a11 = Ab[0];
+    qef.a12 = Ab[1];
+    qef.a13 = Ab[2];
+    qef.a22 = Ab[5];
+    qef.a23 = Ab[6];
+    qef.a33 = Ab[10];
+
+    qef.b1 = Ab[3];
+    qef.b2 = Ab[7];
+    qef.b3 = Ab[11];
+    
+    if(n >= 4){ //TODO ?
+        qef.r = Ab[15];
+    }else{
+        qef.r = 0;
+    }
+
+    qef.massPoint = centroid;
+
+    
+
+
+    auto U = zero!(float,3,3);
+    auto VT = U;
+
+    auto S = zero!(float,3,1);
+
+    float[2] cache;
+
+    LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+
+
+    size_t dim = 3;
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            --dim;
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = diag3(S[0], S[1], S[2]);
+
+    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
+
+    auto minimizer = mult(pinv, b);
+
+    qef.n = cast(ubyte)dim;
+
+    qef.minimizer = centroid + minimizer;
+
+}
+
 Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy){
 
 
@@ -82,8 +170,8 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
     pragma(inline, true)
     void sampleGridAt(size_t x, size_t y, size_t z){
         auto p = offset + vec3!float(x * a, y * a, z * a);
-        auto s = f(p);
-        ubyte b = 0;
+        immutable auto s = f(p);
+        ubyte b;
         if(s < 0.0){
             b = 1;
         }
@@ -95,7 +183,7 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
     void loadCell(size_t x, size_t y, size_t z){
 
         auto cellMin = offset + Vector3!float([x * a, y * a, z * a]);
-        immutable auto bounds = cube(x,y,z);
+        //immutable auto bounds = cube(x,y,z);
 
         uint config;
 
@@ -142,6 +230,10 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
             auto n = cast(HeterogeneousNode!float*) malloc(HeterogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HETEROGENEOUS;
 
+
+            auto planes = Array!(Plane!float)();
+            Vector3!float centroid = zero3!float();
+
             foreach(curEntry; edges){
                 import core.stdc.stdlib : malloc;
                 HermiteData!(float)* data = cast(HermiteData!(float)*)malloc((HermiteData!float).sizeof); //TODO needs to be cleared
@@ -155,7 +247,18 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
                 *data = HermiteData!float(intersection, normal);
                 (*n).hermiteData[curEntry] = data;
                 (*n).cornerSigns = cast(ubyte) config;
+
+                centroid = centroid + intersection;
+                planes.insertBack(Plane!float(intersection, normal));
             }
+
+            centroid = centroid / planes.length;
+
+            QEF!float qef;
+
+            constructQEF(planes, centroid, qef);
+
+            (*n).qef = qef;
 
             grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }
@@ -180,7 +283,7 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
         Node!(float)*[8] nodes = [n0,n1,n2,n3,n4,n5,n6,n7];
 
-        bool inited = false;
+        bool inited;
         bool isPositive;
 
         pragma(inline, true)
@@ -309,13 +412,13 @@ Vector3!float solveQEF(ref QEF!float qef){
 
 }
 
-void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!float) vertexBuffer){
-    foreachHeterogeneousLeaf!((node, bounds) => {
-        auto minimizer = solveQEF((*node).qef);
-        vertexBuffer.insertBack(minimizer);
-        (*node).index = cast(uint) vertexBuffer.length - 1;
-    })(node, bounds);
-}
+// void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!float) vertexBuffer){
+//     foreachHeterogeneousLeaf!((node, bounds) => {
+//         auto minimizer = solveQEF((*node).qef);
+//         vertexBuffer.insertBack(minimizer);
+//         (*node).index = cast(uint) vertexBuffer.length - 1;
+//     })(node, bounds);
+// }
 
 
 auto faceProcTable = edgePairs; //cellProc ->12 faceProc's
@@ -353,7 +456,7 @@ Vector2!uint[12] edgeProcTable2 = [
                                     vecS!([3u,7u]),
 ];
 
-void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
+void faceProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, uint ai, uint bi){
 
     
     switch(nodeType(a)){
@@ -372,18 +475,18 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
                     auto n2 = &faceProcTable4[bi];
 
                     foreach(i;0..4){
-                        faceProc(aint.children[t1[i]], bint.children[t2[i]], ai, bi);
+                        faceProc(renderer, aint.children[t1[i]], bint.children[t2[i]], ai, bi);
                         
-                        edgeProc(aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
+                        edgeProc(renderer, aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
                     }
 
                     break;
 
                 default:
                     foreach(i;0..4){
-                        faceProc(aint.children[t1[i]], b, ai, bi);
+                        faceProc(renderer, aint.children[t1[i]], b, ai, bi);
 
-                        edgeProc(aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], b, b, (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
+                        edgeProc(renderer, aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], b, b, (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
                     }
 
                     break;
@@ -401,9 +504,9 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
                     auto n2 = &faceProcTable4[bi];
 
                     foreach(i;0..4){
-                        faceProc(a, bint.children[t2[i]], ai, bi);
+                        faceProc(renderer, a, bint.children[t2[i]], ai, bi);
 
-                        edgeProc(a, a, bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n2)[i][2], (*n2)[i][3], (*n2)[i][4], (*n2)[i][5]);
+                        edgeProc(renderer, a, a, bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n2)[i][2], (*n2)[i][3], (*n2)[i][4], (*n2)[i][5]);
                     }
 
                     break;
@@ -418,13 +521,63 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
 
 
 
-void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
+void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
     auto types = [nodeType(a), nodeType(b), nodeType(c), nodeType(d)];
     auto nodes = [a,b,c,d];
     auto configs = [ai,bi,ci,di];
+
+    if(types[0] == NODE_TYPE_HOMOGENEOUS || types[1] == NODE_TYPE_HOMOGENEOUS || types[2] == NODE_TYPE_HOMOGENEOUS || types[3] == NODE_TYPE_HOMOGENEOUS){
+        return;
+    }
+
     if(types[0] != NODE_TYPE_INTERIOR && types[1] != NODE_TYPE_INTERIOR && types[2] != NODE_TYPE_INTERIOR && types[3] != NODE_TYPE_INTERIOR){ //none of the nodes are interior
+        //all nodes are heterogeneous
         //TODO make the condition computation faster ^^^ only one check is needed if NODE_TYPE_X are set correctly
         //generate 
+       
+
+        Vector3!float[4] pos;
+        Vector3!float color = vecS!([1.0F,1.0F,1.0F]);
+        Vector3!float normal;
+
+        size_t index = -1;
+        size_t minInvDepth = size_t.max; //== find node with max depth
+        
+
+        foreach(i;0..4){
+            auto node = cast(HeterogeneousNode!float*) nodes[i];
+            auto p = edgePairs[configs[i]];
+            auto p1 = (node.cornerSigns >> p.x) & 1;
+            auto p2 = (node.cornerSigns >> p.y) & 1;
+
+            if(p1 != p2 && node.depth < minInvDepth){
+                index = i;
+                minInvDepth = node.depth;
+            }
+        }
+
+        if(index == -1) return;
+
+        foreach(i;0..4){
+            auto node = cast(HeterogeneousNode!float*) nodes[i];
+            //auto minimizer = solveQEF((*node).qef); //TODO DUPLICATION, use buffers to calc this one time
+            pos[i] = node.qef.minimizer;
+            
+              
+        }
+
+        auto node = (* cast(HeterogeneousNode!float*) nodes[index]);
+
+        normal = node.hermiteData[configs[index]].normal;
+
+        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[1], pos[2]),color, normal);
+
+        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[2], pos[3]),color, normal);
+
+        
+
+        
+
     }else{//subdivide
         Node!(float)*[4] sub1;
         Node!(float)*[4] sub2;
@@ -440,12 +593,12 @@ void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d
             }
         }
 
-        edgeProc(sub1[0], sub1[1], sub1[2], sub1[3], ai, bi, ci, di);
-        edgeProc(sub2[0], sub2[1], sub2[2], sub2[3], ai, bi, ci, di);
+        edgeProc(renderer, sub1[0], sub1[1], sub1[2], sub1[3], ai, bi, ci, di);
+        edgeProc(renderer, sub2[0], sub2[1], sub2[2], sub2[3], ai, bi, ci, di);
     }
 }
 
-void cellProc(Node!(float)* node){
+void cellProc(RenderVertFragDef renderer, Node!(float)* node){
     switch(nodeType(node)){
         case NODE_TYPE_INTERIOR:
             auto interior = cast( InteriorNode!(float)* ) node;
@@ -453,18 +606,18 @@ void cellProc(Node!(float)* node){
 
             foreach(i;0..8){
                 auto c = ch[i];
-                cellProc(c);
+                cellProc(renderer, c); //ok
             }
 
             foreach(i;0..12){
                 auto pair = faceProcTable[i];
                 auto facePair = faceProcTable2[i];
-                faceProc(ch[pair[0]], ch[pair[1]], facePair[0], facePair[1]);
+                faceProc(renderer, ch[pair[0]], ch[pair[1]], facePair[0], facePair[1]); //ok
             }
 
             foreach(i;0..6){
                 auto tuple8 = edgeProcTable[i];
-                edgeProc(ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
+                edgeProc(renderer, ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
             }
 
 

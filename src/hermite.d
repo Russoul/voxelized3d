@@ -410,6 +410,7 @@ struct QEF(T){
     Vector3!T massPoint;
 
     ubyte n; //mass point dimension
+    Vector3!T minimizer;
 }
 
 const ubyte NODE_TYPE_INTERIOR = 1;
@@ -450,7 +451,7 @@ struct HeterogeneousNode(T){
 
     QEF!T qef;
     HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
-    uint index;//index into vertexBuffer of all minimizers (see how it is done in secret sause, prob remove it from here)
+    //uint index;//index into vertexBuffer of all minimizers (see how it is done in secret sause, prob remove it from here)
 }
 
 struct AdaptiveVoxelStorage(T){

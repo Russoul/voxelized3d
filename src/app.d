@@ -592,7 +592,8 @@ void runVoxelized(){
         addCubeBounds(rendererLines, bounds, green);
     };
 
-    foreachHeterogeneousLeaf!(fhet)(tree, bounds);
+    //foreachHeterogeneousLeaf!(fhet)(tree, bounds);
+    cellProc(rendererTrianglesLight, tree);
 
 
     freeFastNoise(noise);

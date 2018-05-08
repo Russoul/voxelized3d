@@ -164,6 +164,12 @@ Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
     return Matrix!(T,N,M)(res);
 }
 
+pragma(inline, true)
+Vector3!T zero3(T)(){
+	auto z = traits.zero!T();
+	return vec3!float(z,z,z);
+}
+
 pragma(inline,true)
 T norm(T, size_t N)(Matrix!(T,N,1) a){
     return sqrt(dot(a,a));
