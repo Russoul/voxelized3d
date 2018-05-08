@@ -333,7 +333,7 @@ Vector3!float[8] cornerPointsOrigin = [
 ];
 
 
-Vector2!uint[12] edgePairs = [
+const Vector2!uint[12] edgePairs = [
                                     vecS!([0u,1u]),
                                     vecS!([1u,2u]),
                                     vecS!([3u,2u]),
@@ -344,7 +344,7 @@ Vector2!uint[12] edgePairs = [
                                     vecS!([7u,6u]),
                                     vecS!([4u,7u]),
 
-                                    vecS!([4u,0u]),
+                                    vecS!([4u,0u]), //TODO can I change 4,0 to 0,4 here ?
                                     vecS!([1u,5u]),
                                     vecS!([2u,6u]),
                                     vecS!([3u,7u]),

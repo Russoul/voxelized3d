@@ -319,10 +319,10 @@ void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!f
 
 
 auto faceProcTable = edgePairs; //cellProc ->12 faceProc's
-auto faceProcTable2 = [vecS([1,3]), vecS([2,0]), vecS([1,3]), vecS([2,0]),
-                       vecS([1,3]), vecS([2,0]), vecS([1,3]), vecS([2,0]),
-                       vecS([4,5]), vecS([5,4]), vecS([5,4]), vecS([5,4]) ]; //face pairs
-auto faceProcTable3 = [vecS([0,1,5,4]), vecS([1,2,6,5]), vecS([3,2,6,7]), vecS([0,3,7,4]), vecS([3,2,1,0]), vecS([7,6,5,4])]; //faceProc ->4 faceProc's
+auto faceProcTable2 = [vecS!([1,3]), vecS!([2,0]), vecS!([1,3]), vecS!([2,0]),
+                       vecS!([1,3]), vecS!([2,0]), vecS!([1,3]), vecS!([2,0]),
+                       vecS!([4,5]), vecS!([5,4]), vecS!([5,4]), vecS!([5,4]) ]; //face pairs
+auto faceProcTable3 = [vecS!([0,1,5,4]), vecS!([1,2,6,5]), vecS!([3,2,6,7]), vecS!([0,3,7,4]), vecS!([3,2,1,0]), vecS!([7,6,5,4])]; //faceProc ->4 faceProc's
 auto faceProcTable4 = [[[5,4, 8,9,11,10], [4,0, 0,4,2,6], [0,1, 9,8,10,11], [1,5, 4,0,6,2]],
                        [[6,5, 9,10,8,11], [5,1, 1,5,3,7], [1,2, 10,9,11,8], [2,6, 5,1,7,3]],
                        [[6,7, 11,10,8,9], [7,3, 2,6,0,4], [3,2, 10,11,9,8], [2,6, 6,2,4,0]],
@@ -333,7 +333,25 @@ auto faceProcTable5 = [ //faceProc face type -> edgeProc dir
     [2,1,2,1], [2,0,2,0], [2,1,2,1], [2,0,2,0], [0,1,0,1], [0,1,0,1]
 ];
 
-auto edgeProcTable = [vecS([0,1,5,4, 5,7,3,1]), vecS([1,2,6,5, 6,4,0,2]), vecS([2,3,7,6, 5,7,3,1]), vecS([3,0,4,7, 6,4,0,2]), vecS([0,1,2,3, 10,11,8,9]), vecS([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
+auto edgeProcTable = [vecS!([0,1,5,4, 5,7,3,1]), vecS!([1,2,6,5, 6,4,0,2]), vecS!([2,3,7,6, 5,7,3,1]), vecS!([3,0,4,7, 6,4,0,2]), vecS!([0,1,2,3, 10,11,8,9]), vecS!([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
+
+
+Vector2!uint[12] edgeProcTable2 = [
+                                    vecS!([0u,1u]),
+                                    vecS!([1u,2u]),
+                                    vecS!([3u,2u]),
+                                    vecS!([0u,3u]),
+
+                                    vecS!([4u,5u]),
+                                    vecS!([5u,6u]),
+                                    vecS!([7u,6u]),
+                                    vecS!([4u,7u]),
+
+                                    vecS!([0u,4u]),
+                                    vecS!([1u,5u]),
+                                    vecS!([2u,6u]),
+                                    vecS!([3u,7u]),
+];
 
 void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
 
@@ -356,7 +374,7 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
                     foreach(i;0..4){
                         faceProc(aint.children[t1[i]], bint.children[t2[i]], ai, bi);
                         
-                        edgeProc(aint.chidren[n1[i][0]], aint.chidren[n1[i][1]], bint.chidren[n2[i][0]], bint.chidren[n2[i][1]], n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                        edgeProc(aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
                     }
 
                     break;
@@ -365,7 +383,7 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
                     foreach(i;0..4){
                         faceProc(aint.children[t1[i]], b, ai, bi);
 
-                        edgeProc(aint.chidren[n1[i][0]], aint.chidren[n1[i][1]], b, b, n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                        edgeProc(aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], b, b, (*n1)[i][2], (*n1)[i][3], (*n1)[i][4], (*n1)[i][5]);
                     }
 
                     break;
@@ -385,7 +403,7 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
                     foreach(i;0..4){
                         faceProc(a, bint.children[t2[i]], ai, bi);
 
-                        edgeProc(a, a, bint.chidren[n2[i][0]], bint.chidren[n2[i][1]], n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                        edgeProc(a, a, bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n2)[i][2], (*n2)[i][3], (*n2)[i][4], (*n2)[i][5]);
                     }
 
                     break;
@@ -398,8 +416,33 @@ void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
     }
 }
 
-void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
 
+
+void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
+    auto types = [nodeType(a), nodeType(b), nodeType(c), nodeType(d)];
+    auto nodes = [a,b,c,d];
+    auto configs = [ai,bi,ci,di];
+    if(types[0] != NODE_TYPE_INTERIOR && types[1] != NODE_TYPE_INTERIOR && types[2] != NODE_TYPE_INTERIOR && types[3] != NODE_TYPE_INTERIOR){ //none of the nodes are interior
+        //TODO make the condition computation faster ^^^ only one check is needed if NODE_TYPE_X are set correctly
+        //generate 
+    }else{//subdivide
+        Node!(float)*[4] sub1;
+        Node!(float)*[4] sub2;
+        foreach(i;0..4){
+            if(types[i] != NODE_TYPE_INTERIOR){
+                sub1[i] = nodes[i];
+                sub2[i] = nodes[i];
+            }else{
+                auto interior = cast( InteriorNode!(float)* ) nodes[i];
+                auto p = edgeProcTable2[configs[i]];
+                sub1[i] = interior.children[p.x];
+                sub2[i] = interior.children[p.y];
+            }
+        }
+
+        edgeProc(sub1[0], sub1[1], sub1[2], sub1[3], ai, bi, ci, di);
+        edgeProc(sub2[0], sub2[1], sub2[2], sub2[3], ai, bi, ci, di);
+    }
 }
 
 void cellProc(Node!(float)* node){
@@ -421,7 +464,7 @@ void cellProc(Node!(float)* node){
 
             foreach(i;0..6){
                 auto tuple8 = edgeProcTable[i];
-                edgeProc(tuple8.x, tuple8.y, tuple8.z, tuple8.w, tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
+                edgeProc(ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
             }
 
 
