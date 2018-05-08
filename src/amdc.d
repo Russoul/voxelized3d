@@ -526,14 +526,18 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
     auto nodes = [a,b,c,d];
     auto configs = [ai,bi,ci,di];
 
-    if(types[0] == NODE_TYPE_HOMOGENEOUS || types[1] == NODE_TYPE_HOMOGENEOUS || types[2] == NODE_TYPE_HOMOGENEOUS || types[3] == NODE_TYPE_HOMOGENEOUS){
-        return;
-    }
+    
 
     if(types[0] != NODE_TYPE_INTERIOR && types[1] != NODE_TYPE_INTERIOR && types[2] != NODE_TYPE_INTERIOR && types[3] != NODE_TYPE_INTERIOR){ //none of the nodes are interior
         //all nodes are heterogeneous
         //TODO make the condition computation faster ^^^ only one check is needed if NODE_TYPE_X are set correctly
         //generate 
+
+
+
+        if(types[0] == NODE_TYPE_HOMOGENEOUS || types[1] == NODE_TYPE_HOMOGENEOUS || types[2] == NODE_TYPE_HOMOGENEOUS || types[3] == NODE_TYPE_HOMOGENEOUS){
+            return;//TODO why ?
+        }
        
 
         Vector3!float[4] pos;
@@ -598,7 +602,7 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
     }
 }
 
-void cellProc(RenderVertFragDef renderer, Node!(float)* node){
+void cellProc(RenderVertFragDef renderer, Node!(float)* node){ //ok
     switch(nodeType(node)){
         case NODE_TYPE_INTERIOR:
             auto interior = cast( InteriorNode!(float)* ) node;
@@ -617,7 +621,7 @@ void cellProc(RenderVertFragDef renderer, Node!(float)* node){
 
             foreach(i;0..6){
                 auto tuple8 = edgeProcTable[i];
-                edgeProc(renderer, ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
+                edgeProc(renderer, ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);//ok
             }
 
 
@@ -646,6 +650,32 @@ void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
             break;
         case NODE_TYPE_HETEROGENEOUS:
             f( cast(HeterogeneousNode!float*)  node, bounds);
+            break;
+
+    }
+}
+
+
+void foreachLeaf(alias f)(Node!(float)* node, Cube!float bounds){
+    final switch(nodeType(node)){
+        case NODE_TYPE_INTERIOR:
+            auto interior = cast( InteriorNode!(float)* ) node;
+            auto ch = (*interior).children;
+
+            foreach(i;0..8){
+                auto c = ch[i];
+                auto tr = cornerPointsOrigin[i] * bounds.extent / 2;
+                auto newBounds = Cube!(float)(bounds.center + tr, bounds.extent/2);
+
+                foreachLeaf!(f)(c, newBounds);
+            }
+            break;
+
+        case NODE_TYPE_HOMOGENEOUS:
+            f(node, bounds);
+            break;
+        case NODE_TYPE_HETEROGENEOUS:
+            f(node, bounds);
             break;
 
     }

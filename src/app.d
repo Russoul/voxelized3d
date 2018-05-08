@@ -588,11 +588,15 @@ void runVoxelized(){
 
     auto tree = sample!(typeof(q))(q, offset, a, size, acc);
 
-    auto fhet = (HeterogeneousNode!float* node, Cube!float bounds){
-        addCubeBounds(rendererLines, bounds, green);
+    auto fhet = (Node!float* node, Cube!float bounds){
+        if(nodeType(node) == NODE_TYPE_HETEROGENEOUS){
+            addCubeBounds(rendererLines, bounds, red);
+        }else{
+            addCubeBounds(rendererLines, bounds, green);
+        }
     };
 
-    //foreachHeterogeneousLeaf!(fhet)(tree, bounds);
+    //foreachLeaf!(fhet)(tree, bounds);
     cellProc(rendererTrianglesLight, tree);
 
 
