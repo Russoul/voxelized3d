@@ -436,7 +436,7 @@ auto faceProcTable5 = [ //faceProc face type -> edgeProc dir
     [2,1,2,1], [2,0,2,0], [2,1,2,1], [2,0,2,0], [0,1,0,1], [0,1,0,1]
 ];
 
-auto edgeProcTable = [vecS!([0,1,5,4, 5,7,3,1]), vecS!([1,2,6,5, 6,4,0,2]), vecS!([2,3,7,6, 5,7,3,1]), vecS!([3,0,4,7, 6,4,0,2]), vecS!([0,1,2,3, 10,11,8,9]), vecS!([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
+auto edgeProcTable = [vecS!([0,1,5,4, 5,7,3,1]), vecS!([1,2,6,5, 6,4,0,2]), vecS!([2,3,7,6, 7,5,1,3]), vecS!([3,0,4,7, 4,6,2,0]), vecS!([0,1,2,3, 10,11,8,9]), vecS!([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
 
 
 Vector2!uint[12] edgeProcTable2 = [
