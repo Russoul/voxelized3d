@@ -318,13 +318,87 @@ void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!f
 }
 
 
-auto faceProcTable = edgePairs;
+auto faceProcTable = edgePairs; //cellProc ->12 faceProc's
+auto faceProcTable2 = [vecS([1,3]), vecS([2,0]), vecS([1,3]), vecS([2,0]),
+                       vecS([1,3]), vecS([2,0]), vecS([1,3]), vecS([2,0]),
+                       vecS([4,5]), vecS([5,4]), vecS([5,4]), vecS([5,4]) ]; //face pairs
+auto faceProcTable3 = [vecS([0,1,5,4]), vecS([1,2,6,5]), vecS([3,2,6,7]), vecS([0,3,7,4]), vecS([3,2,1,0]), vecS([7,6,5,4])]; //faceProc ->4 faceProc's
+auto faceProcTable4 = [[[5,4, 8,9,11,10], [4,0, 0,4,2,6], [0,1, 9,8,10,11], [1,5, 4,0,6,2]],
+                       [[6,5, 9,10,8,11], [5,1, 1,5,3,7], [1,2, 10,9,11,8], [2,6, 5,1,7,3]],
+                       [[6,7, 11,10,8,9], [7,3, 2,6,0,4], [3,2, 10,11,9,8], [2,6, 6,2,4,0]],
+                       [[7,4, 8,11,9,10], [4,0, 3,7,1,5], [0,3, 11,8,10,9], [3,7, 7,3,5,1]],
+                       [[1,0, 3,1,7,5], [0,3, 2,0,6,4], [3,2, 1,3,5,7], [2,1, 0,2,4,6]],
+                       [[5,4, 7,5,3,1], [4,7, 6,4,2,0], [7,6, 5,7,1,3], [6,5, 4,6,0,2]]]; //faceProc ->4 edgeProc's
+auto faceProcTable5 = [ //faceProc face type -> edgeProc dir
+    [2,1,2,1], [2,0,2,0], [2,1,2,1], [2,0,2,0], [0,1,0,1], [0,1,0,1]
+];
 
-void faceProc(Node!(float)* a, Node!(float)* b){
+auto edgeProcTable = [vecS([0,1,5,4, 5,7,3,1]), vecS([1,2,6,5, 6,4,0,2]), vecS([2,3,7,6, 5,7,3,1]), vecS([3,0,4,7, 6,4,0,2]), vecS([0,1,2,3, 10,11,8,9]), vecS([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
 
+void faceProc(Node!(float)* a, Node!(float)* b, uint ai, uint bi){
+
+    
+    switch(nodeType(a)){
+        case NODE_TYPE_INTERIOR:
+
+            auto aint = cast( InteriorNode!(float)* ) a;
+            auto t1 = faceProcTable3[ai];
+            auto n1 = &faceProcTable4[ai];
+
+            
+            switch(nodeType(b)){
+                case NODE_TYPE_INTERIOR: //both nodes are internal
+                    auto bint = cast( InteriorNode!(float)* ) b;
+
+                    auto t2 = faceProcTable3[bi];
+                    auto n2 = &faceProcTable4[bi];
+
+                    foreach(i;0..4){
+                        faceProc(aint.children[t1[i]], bint.children[t2[i]], ai, bi);
+                        
+                        edgeProc(aint.chidren[n1[i][0]], aint.chidren[n1[i][1]], bint.chidren[n2[i][0]], bint.chidren[n2[i][1]], n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                    }
+
+                    break;
+
+                default:
+                    foreach(i;0..4){
+                        faceProc(aint.children[t1[i]], b, ai, bi);
+
+                        edgeProc(aint.chidren[n1[i][0]], aint.chidren[n1[i][1]], b, b, n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                    }
+
+                    break;
+            }
+
+            break;
+            
+        default:
+
+            switch(nodeType(b)){
+                case NODE_TYPE_INTERIOR:
+                    auto bint = cast( InteriorNode!(float)* ) b;
+
+                    auto t2 = faceProcTable3[bi];
+                    auto n2 = &faceProcTable4[bi];
+
+                    foreach(i;0..4){
+                        faceProc(a, bint.children[t2[i]], ai, bi);
+
+                        edgeProc(a, a, bint.chidren[n2[i][0]], bint.chidren[n2[i][1]], n1[ai][i][2], n1[ai][i][3], n1[ai][i][4], n1[ai][i][5]);
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+
+            break;
+    }
 }
 
-void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d){
+void edgeProc(Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
 
 }
 
@@ -341,10 +415,15 @@ void cellProc(Node!(float)* node){
 
             foreach(i;0..12){
                 auto pair = faceProcTable[i];
-                faceProc(ch[pair[0]], ch[pair[1]]);
+                auto facePair = faceProcTable2[i];
+                faceProc(ch[pair[0]], ch[pair[1]], facePair[0], facePair[1]);
             }
 
-            //TODO edgeProc
+            foreach(i;0..6){
+                auto tuple8 = edgeProcTable[i];
+                edgeProc(tuple8.x, tuple8.y, tuple8.z, tuple8.w, tuple8[4], tuple8[5], tuple8[6], tuple8[7]);
+            }
+
 
             break;
             
