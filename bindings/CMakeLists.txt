@@ -37,6 +37,13 @@ endif()
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1") //SIMD noise (not used for now)
 
-cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c)
+
+set(CONTOURING  contouring/eigen.cpp contouring/eigen.h contouring/GeoCommon.h contouring/HashMap.h contouring/PLYReader.h contouring/PLYWriter.h contouring/octree.cpp contouring/octree.h contouring/intersection.h)
+
+cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c ${CONTOURING})
 
 install(TARGETS voxelizedBindings DESTINATION /usr/local/lib)
+
+add_executable(DC contouring/dc.cpp)
+
+target_link_libraries(DC voxelizedBindings)

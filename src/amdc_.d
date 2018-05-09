@@ -412,6 +412,264 @@ Vector3!float solveQEF(ref QEF!float qef){
 
 }
 
+// void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!float) vertexBuffer){
+//     foreachHeterogeneousLeaf!((node, bounds) => {
+//         auto minimizer = solveQEF((*node).qef);
+//         vertexBuffer.insertBack(minimizer);
+//         (*node).index = cast(uint) vertexBuffer.length - 1;
+//     })(node, bounds);
+// }
+
+
+auto faceProcTable = edgePairs; //cellProc ->12 faceProc's
+auto faceProcTable2 = [vecS!([1,3]), vecS!([2,0]), vecS!([1,3]), vecS!([2,0]),
+                       vecS!([1,3]), vecS!([2,0]), vecS!([1,3]), vecS!([2,0]),
+                       vecS!([4,5]), vecS!([5,4]), vecS!([5,4]), vecS!([5,4]) ]; //face pairs
+auto faceProcTable3 = [vecS!([0,1,5,4]), vecS!([1,2,6,5]), vecS!([3,2,6,7]), vecS!([0,3,7,4]), vecS!([3,2,1,0]), vecS!([7,6,5,4])]; //faceProc ->4 faceProc's
+auto faceProcTable4 = [[[5,4, 8,9], [4,0, 0,4], [0,1, 9,8], [1,5, 4,0]], //ok
+                       [[6,5, 9,10], [5,1, 1,5], [1,2, 10,9], [2,6, 5,1]],
+                       [[6,7, 11,10], [7,3, 2,6], [3,2, 10,11], [2,6, 6,2]],
+                       [[7,4, 8,11], [4,0, 3,7], [0,3, 11,8], [3,7, 7,3]],
+                       [[1,0, 3,1], [0,3, 2,0], [3,2, 1,3], [2,1, 0,2]],
+                       [[5,4, 7,5], [4,7, 6,4], [7,6, 5,7], [6,5, 4,6]]]; //faceProc ->4 edgeProc's
+auto faceProcTable5 = [ //faceProc face type -> edgeProc dir
+    [2,1,2,1], [2,0,2,0], [2,1,2,1], [2,0,2,0], [0,1,0,1], [0,1,0,1]
+];
+
+auto edgeProcTable = [vecS!([0,1,5,4, 5,7,3,1]), vecS!([1,2,6,5, 6,4,0,2]), vecS!([2,3,7,6, 7,5,1,3]), vecS!([3,0,4,7, 4,6,2,0]), vecS!([0,1,2,3, 10,11,8,9]), vecS!([4,5,6,7, 10,11,8,9])]; //cellProc ->6 edgeProc
+
+
+auto facePairs = [2,3,0,1,5,4];//not used
+
+Vector2!uint[12] edgeProcTable2 = [
+                                    vecS!([0u,1u]),
+                                    vecS!([1u,2u]),
+                                    vecS!([3u,2u]),
+                                    vecS!([0u,3u]),
+
+                                    vecS!([4u,5u]),
+                                    vecS!([5u,6u]),
+                                    vecS!([7u,6u]),
+                                    vecS!([4u,7u]),
+
+                                    vecS!([0u,4u]),
+                                    vecS!([1u,5u]),
+                                    vecS!([2u,6u]),
+                                    vecS!([3u,7u]),
+];
+
+void faceProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, uint ai, uint bi){
+
+    //ai and bi pairing is correct (checked)
+
+    if(nodeType(a) == NODE_TYPE_HOMOGENEOUS || nodeType(b) == NODE_TYPE_HOMOGENEOUS){
+        return;
+    }
+
+    
+    switch(nodeType(a)){
+        case NODE_TYPE_INTERIOR:
+
+            auto aint = cast( InteriorNode!(float)* ) a;
+            auto t1 = faceProcTable3[ai];
+            auto n1 = &faceProcTable4[ai];
+            auto n2 = &faceProcTable4[bi];
+
+            
+            switch(nodeType(b)){
+                case NODE_TYPE_INTERIOR: //both nodes are internal
+                    auto bint = cast( InteriorNode!(float)* ) b;
+
+                    auto t2 = faceProcTable3[bi];
+                    
+
+                    foreach(i;0..4){
+                        faceProc(renderer, aint.children[t1[i]], bint.children[t2[i]], ai, bi); //ok
+                        
+                        edgeProc(renderer, aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n1)[i][2], (*n1)[i][3], (*n2)[i][2], (*n2)[i][3]); //ok
+                    }
+
+                    break;
+
+                default:
+                    foreach(i;0..4){
+                        faceProc(renderer, aint.children[t1[i]], b, ai, bi); //ok
+
+                        edgeProc(renderer, aint.children[(*n1)[i][0]], aint.children[(*n1)[i][1]], b, b, (*n1)[i][2], (*n1)[i][3], (*n2)[i][2], (*n2)[i][3]); //ok
+                    }
+
+                    break;
+            }
+
+            break;
+            
+        default:
+
+            switch(nodeType(b)){
+                case NODE_TYPE_INTERIOR:
+                    auto bint = cast( InteriorNode!(float)* ) b;
+
+                    auto t2 = faceProcTable3[bi];
+                    auto n1 = &faceProcTable4[ai];
+                    auto n2 = &faceProcTable4[bi];
+
+                    foreach(i;0..4){
+                        faceProc(renderer, a, bint.children[t2[i]], ai, bi); //ok
+
+                        edgeProc(renderer, a, a, bint.children[(*n2)[i][0]], bint.children[(*n2)[i][1]], (*n1)[i][2], (*n1)[i][3], (*n2)[i][2], (*n2)[i][3]); //ok
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+
+            break;
+    }
+}
+
+auto dirTest = [[8,9,10,11], [0,2,4,6], [1,3,5,7]];
+
+bool testDirs(size_t[4] dirs){
+    
+    size_t[4] belongings;
+    
+    foreach(i;0..4){
+        size_t d = dirs[i];
+        foreach(j;0..3){
+            foreach(k;0..4){
+                if(d == dirTest[j][k]){
+                    belongings[i] = j;
+                }
+            }
+        }
+    }
+
+    return belongings[0] == belongings[1] && belongings[1] == belongings[2] && belongings[2] == belongings[3] &&
+     dirs[0] != dirs[1] && dirs[0] != dirs[2] && dirs[0] != dirs[3] && dirs[1] != dirs[2] && dirs[1] != dirs[3] && dirs[2] != dirs[3];
+}
+
+static int CALLS = 0;
+void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
+    auto types = [nodeType(a), nodeType(b), nodeType(c), nodeType(d)];
+    auto nodes = [a,b,c,d];
+    auto configs = [ai,bi,ci,di];
+
+    // if(!testDirs([ai,bi,ci,di])){
+    //     writeln("failed test"); //ok
+    // }
+    
+
+    if(types[0] != NODE_TYPE_INTERIOR && types[1] != NODE_TYPE_INTERIOR && types[2] != NODE_TYPE_INTERIOR && types[3] != NODE_TYPE_INTERIOR){ //none of the nodes are interior
+        //all nodes are heterogeneous
+        //TODO make the condition computation faster ^^^ only one check is needed if NODE_TYPE_X are set correctly
+        //generate 
+
+
+
+        if(types[0] == NODE_TYPE_HOMOGENEOUS || types[1] == NODE_TYPE_HOMOGENEOUS || types[2] == NODE_TYPE_HOMOGENEOUS || types[3] == NODE_TYPE_HOMOGENEOUS){
+            return;//TODO why ?
+        }
+       
+        
+
+        CALLS += 1;
+
+        Vector3!float[4] pos;
+        Vector3!float color = vecS!([1.0F,1.0F,1.0F]);
+        Vector3!float normal;
+
+        size_t index = -1;
+        size_t minInvDepth = size_t.max; //== find node with max depth
+        
+
+        foreach(i;0..4){
+            auto node = cast(HeterogeneousNode!float*) nodes[i];
+            auto p = edgePairs[configs[i]];
+            auto p1 = (node.cornerSigns >> p.x) & 1;
+            auto p2 = (node.cornerSigns >> p.y) & 1;
+
+            if(node.depth < minInvDepth){
+                if(p1 != p2){
+                    index = i;
+                }else{
+                    index = -1;
+                }
+                minInvDepth = node.depth;
+            }
+        }
+
+        if(index == -1) return;
+
+        foreach(i;0..4){
+            auto node = cast(HeterogeneousNode!float*) nodes[i];
+            //auto minimizer = solveQEF((*node).qef); //TODO DUPLICATION, use buffers to calc this one time
+            pos[i] = node.qef.minimizer;
+            
+              
+        }
+
+        auto node = (* cast(HeterogeneousNode!float*) nodes[index]);
+
+        normal = node.hermiteData[configs[index]].normal;
+
+        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[1], pos[2]),color, normal);
+
+        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[2], pos[3]),color, normal);
+
+        
+
+        
+
+    }else{//subdivide
+        Node!(float)*[4] sub1;
+        Node!(float)*[4] sub2;
+        foreach(i;0..4){
+            if(types[i] != NODE_TYPE_INTERIOR){
+                sub1[i] = nodes[i];
+                sub2[i] = nodes[i];
+            }else{
+                auto interior = cast( InteriorNode!(float)* ) nodes[i];
+                auto p = edgeProcTable2[configs[i]];
+                sub1[i] = interior.children[p.x];
+                sub2[i] = interior.children[p.y];
+            }
+        }
+
+        edgeProc(renderer, sub1[0], sub1[1], sub1[2], sub1[3], ai, bi, ci, di);
+        edgeProc(renderer, sub2[0], sub2[1], sub2[2], sub2[3], ai, bi, ci, di);
+    }
+}
+
+void cellProc(RenderVertFragDef renderer, Node!(float)* node){ //ok
+    switch(nodeType(node)){
+        case NODE_TYPE_INTERIOR:
+            auto interior = cast( InteriorNode!(float)* ) node;
+            auto ch = (*interior).children;
+
+            foreach(i;0..8){
+                auto c = ch[i];
+                cellProc(renderer, c); //ok
+            }
+
+            foreach(i;0..12){
+                auto pair = faceProcTable[i];
+                auto facePair = faceProcTable2[i];
+                faceProc(renderer, ch[pair[0]], ch[pair[1]], facePair[0], facePair[1]); //ok
+            }
+
+            foreach(i;0..6){
+                auto tuple8 = edgeProcTable[i];
+                edgeProc(renderer, ch[tuple8.x], ch[tuple8.y], ch[tuple8.z], ch[tuple8.w], tuple8[4], tuple8[5], tuple8[6], tuple8[7]);//ok
+            }
+
+
+            break;
+            
+        default: break;
+    }
+}
 
 void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
     final switch(nodeType(node)){
@@ -463,165 +721,3 @@ void foreachLeaf(alias f)(Node!(float)* node, Cube!float bounds){
     }
 }
 
-
-void faceProc(RenderVertFragDef dat, Node!float*[2] node, int dir){
-    if(nodeType(node[0]) == NODE_TYPE_HOMOGENEOUS || nodeType(node[1]) == NODE_TYPE_HOMOGENEOUS){
-        return;
-    }
-
-    auto type = [nodeType(node[0]), nodeType(node[1])];
-
-    if(type[0] == NODE_TYPE_INTERIOR || type[1] == NODE_TYPE_INTERIOR){
-        Node!float*[2] fcd;
-
-        foreach(i;0..4){
-            int[2] c = [faceProcFaceMask[dir][i][0], faceProcFaceMask[dir][i][1]];
-            foreach(j;0..2){
-                if(type[j] != NODE_TYPE_INTERIOR){
-                    fcd[j] = node[j];
-                }else{
-                    fcd[j] = (*asInterior[node[j]]).children[c[j]];
-                }
-            }
-
-            faceProc(dat, fcd, faceProcFaceMask[dir][i][2]);
-        }
-
-        int[4][2] orders = [[ 0, 0, 1, 1 ], [ 0, 1, 0, 1 ]] ;
-
-        Node!float*[4] ecd;
-
-        foreach(i;0..4){
-            int[4] c = [faceProcEdgeMask[dir][i][1], faceProcEdgeMask[dir][i][2], 
-                        faceProcEdgeMask[dir][i][3], faceProcEdgeMask[dir][i][4]];
-            int* order = &orders[faceProcEdgeMask[dir][i][0]];
-            foreach(j;0..4){
-                if(type[order[j]] != NODE_TYPE_INTERIOR){
-                    ecd[j] = node[order[j]];
-                }else{
-                    ecd[j] = (*asInterior(node)).children[c[j]];
-                }
-            }
-            edgeProc(dat, ecd, faceProcEdgeMask[dir][i][5]);
-        }
-    }
-}
-
-void edgeProc(RenderVertFragDef dat, Node!float*[4] node, int dir){
-    auto type = [nodeType(node[0]), nodeType(node[1]), nodeType(node[2]), nodeType(node[3])];
-
-    if(type[0] == NODE_TYPE_HOMOGENEOUS || type[1] == NODE_TYPE_HOMOGENEOUS || type[2] == NODE_TYPE_HOMOGENEOUS || type[3] == NODE_TYPE_HOMOGENEOUS){
-        return;
-    }
-
-    if(type[0] != NODE_TYPE_INTERIOR && type[1] != NODE_TYPE_INTERIOR && type[2] != NODE_TYPE_INTERIOR && type[3] != NODE_TYPE_INTERIOR){
-        processEdge(dat, node, dir);
-    }else{
-        Node!float*[4] ecd;
-        foreach(i;0..2){
-            int[4] c = [edgeProcEdgeMask[dir][i][0],
-                        edgeProcEdgeMask[dir][i][1],
-                        edgeProcEdgeMask[dir][i][2],
-                        edgeProcEdgeMask[dir][i][3]];
-            foreach(j;0..4){
-                if(type[j] != NODE_TYPE_INTERIOR){
-                    ecd[j] = node[j];
-                }else{
-                    ecd[j] = (*asInterior(node)).children[c[j]];
-                }
-            }
-
-            edgeProc(dat, ecd, edgeProcEdgeMask[dir][i][4]);
-        }
-    }
-}
-
-void processEdge(RenderVertFragDef dat, Node!float*[4] node, int dir){
-    //TODO
-}
-
-void cellProc(RenderVertFragDef dat, Node!float* node){
-    if(nodeType(node) == NODE_TYPE_HOMOGENEOUS) return;
-
-    auto type = nodeType(node);
-
-    if(type == NODE_TYPE_INTERIOR){
-        auto inode = asInterior(node);
-        foreach(i;0..8){
-            cellProc(dat, (*inode).children[i]);
-        }
-
-        foreach(i;0..12){
-            int[2] c = [cellProcFaceMask[i][0], cellProcFaceMask[i][1]];
-            Node!float*[2] fcd;
-            fcd[0] = (*inode).children[c[0]];
-            fcd[1] = (*inode).children[c[1]];
-            faceProc(dat, fcd, cellProcFaceMask[i][2]);
-        }
-
-        foreach(i;0..6){
-            int[4] c = [ cellProcEdgeMask[i][0], cellProcEdgeMask[i][1], cellProcEdgeMask[i][2], cellProcEdgeMask[i][3] ];
-            Node!float*[4] ecd;
-            foreach(j;0..4){
-                ecd[j] = (*inode).children[c[j]];
-            }
-
-            edgeProc(dat, ecd, cellProcEdgeMask[i][4]);
-        }
-    }
-}
-
-
-// map from the 12 edges of the cube to the 8 vertices.
-// example: edge 0 connects vertices 0,4
-const int[2][12] edgevmap = [[0,4],[1,5],[2,6],[3,7],[0,2],[1,3],[4,6],[5,7],[0,1],[2,3],[4,5],[6,7]];
-const int[3] edgemask = [ 5, 3, 6 ];
-
-// direction from parent st to each of the eight child st
-// st is the corner of the cube with minimum (x,y,z) coordinates
-const int[3][8] vertMap = [[0,0,0],[0,0,1],[0,1,0],[0,1,1],[1,0,0],[1,0,1],[1,1,0],[1,1,1]] ;
-
-// map from the 6 faces of the cube to the 4 vertices that bound the face
-const int[4][6] faceMap = [[4, 8, 5, 9], [6, 10, 7, 11],[0, 8, 1, 10],[2, 9, 3, 11],[0, 4, 2, 6],[1, 5, 3, 7]] ;
-
-// first used by cellProcCount()
-// used in cellProcContour(). 
-// between 8 child-nodes there are 12 faces.
-// first two numbers are child-pairs, to be processed by faceProcContour()
-// the last number is "dir" ?
-const int[3][12] cellProcFaceMask = [[0,4,0],[1,5,0],[2,6,0],[3,7,0],[0,2,1],[4,6,1],[1,3,1],[5,7,1],[0,1,2],[2,3,2],[4,5,2],[6,7,2]] ;
-
-// then used in cellProcContour() when calling edgeProc()
-// between 8 children there are 6 common edges
-// table lists the 4 children that share the edge
-// the last number is "dir" ?
-const int[5][6] cellProcEdgeMask = [[0,1,2,3,0],[4,5,6,7,0],[0,4,1,5,1],[2,6,3,7,1],[0,2,4,6,2],[1,3,5,7,2]] ;
-
-// usde by faceProcCount()
-const int[3][4][3] faceProcFaceMask = [
-	[[4,0,0],[5,1,0],[6,2,0],[7,3,0]],
-	[[2,0,1],[6,4,1],[3,1,1],[7,5,1]],
-	[[1,0,2],[3,2,2],[5,4,2],[7,6,2]]
-] ;
-const int[6][4][3] faceProcEdgeMask = [
-	[[1,4,0,5,1,1],[1,6,2,7,3,1],[0,4,6,0,2,2],[0,5,7,1,3,2]],
-	[[0,2,3,0,1,0],[0,6,7,4,5,0],[1,2,0,6,4,2],[1,3,1,7,5,2]],
-	[[1,1,0,3,2,0],[1,5,4,7,6,0],[0,1,5,0,4,1],[0,3,7,2,6,1]]
-];
-const int[5][2][3] edgeProcEdgeMask = [
-	[[3,2,1,0,0],[7,6,5,4,0]],
-	[[5,1,4,0,1],[7,3,6,2,1]],
-	[[6,4,2,0,2],[7,5,3,1,2]],
-];
-const int[4][3] processEdgeMask = [[3,2,1,0],[7,5,6,4],[11,10,9,8]] ;
-
-const int[3][4][3] dirCell = [
-	[[0,-1,-1],[0,-1,0],[0,0,-1],[0,0,0]],
-	[[-1,0,-1],[-1,0,0],[0,0,-1],[0,0,0]],
-	[[-1,-1,0],[-1,0,0],[0,-1,0],[0,0,0]]
-];
-const int[4][3] dirEdge = [
-	[3,2,1,0],
-	[7,6,5,4],
-	[11,10,9,8]
-];

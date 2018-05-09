@@ -464,3 +464,7 @@ ubyte nodeType(T)(Node!(T)* node){
     return (*node).__node_type__;
 }
 
+InteriorNode!(T) asInterior(Node!T node){
+    return cast(InteriorNode!T) node;
+}
+

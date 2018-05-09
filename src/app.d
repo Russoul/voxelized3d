@@ -339,7 +339,7 @@ void runVoxelized(){
             auto currentTime = Clock.currTime();
             import core.stdc.time;
             time_t unixTime = core.stdc.time.time(null);
-            setSeed(noise, cast(int) unixTime);
+            //setSeed(noise, cast(int) unixTime);
         }
 
         @nogc float opCall(Vector3!float v){
@@ -598,6 +598,7 @@ void runVoxelized(){
 
     //foreachLeaf!(fhet)(tree, bounds);
     cellProc(rendererTrianglesLight, tree);
+    writeln("call count : " ~ to!string(CALLS));
 
 
     freeFastNoise(noise);
