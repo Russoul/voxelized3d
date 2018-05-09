@@ -19,7 +19,7 @@ import render;
 import math;
 import umdc;
 
-import amdc;
+import amdc_;
 
 
 
@@ -260,6 +260,7 @@ void runVoxelized(){
 	auto black = zero!(float,3,1);
 	auto white = red + green + blue;
 	auto brown = Vector3!float([139.0F/256.0F,69.0F/255.0F,19.0F/255.0F]);
+    auto yellow = red + green;
 
     addLine3Color(rendererLines, Line!(float,3)(black, red), red);
     addLine3Color(rendererLines, Line!(float,3)(black, green), green);
@@ -591,14 +592,17 @@ void runVoxelized(){
     auto fhet = (Node!float* node, Cube!float bounds){
         if(nodeType(node) == NODE_TYPE_HETEROGENEOUS){
             addCubeBounds(rendererLines, bounds, red);
+            addCubeBounds(rendererLines, Cube!float( (*asHetero!float(node) ).qef.minimizer, bounds.extent / 32 ), yellow);
         }else{
             addCubeBounds(rendererLines, bounds, green);
         }
     };
 
+    auto storage = AdaptiveVoxelStorage!float(size, tree);
+
     //foreachLeaf!(fhet)(tree, bounds);
     cellProc(rendererTrianglesLight, tree);
-    writeln("call count : " ~ to!string(CALLS));
+    //cellProc(rendererLines, tree, storage);
 
 
     freeFastNoise(noise);

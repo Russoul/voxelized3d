@@ -1,4 +1,4 @@
-module amdc;
+module amdc_;
 
 import std.math;
 import std.stdio;
@@ -135,7 +135,8 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
 
 Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy){
 
-
+    ubyte maxDepth = cast(ubyte) log2(cellCount);
+    
 
     auto size = cellCount;
 
@@ -218,17 +219,20 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
             auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = true;
+            (*n).depth = maxDepth;
             grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else if(config == 255){ //fully inside
             auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = false;
+            (*n).depth = maxDepth;
             grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else{ //heterogeneous
             auto edges = whichEdgesAreSignedAll(config);
 
             auto n = cast(HeterogeneousNode!float*) malloc(HeterogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HETEROGENEOUS;
+            (*n).depth = maxDepth;
 
 
             auto planes = Array!(Plane!float)();
@@ -342,11 +346,11 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
     auto curSize = size;
     
-    auto curDepth = 0;
+    auto curDepth = maxDepth;
 
     while(curSize != 1){
         curSize /= 2;
-        curDepth += 1;
+        curDepth -= 1;
 
         Array!(Node!(float)*) sparseGrid = Array!(Node!(float)*)();
         sparseGrid.reserve(curSize * curSize * curSize);
@@ -550,6 +554,8 @@ bool testDirs(size_t[4] dirs){
      dirs[0] != dirs[1] && dirs[0] != dirs[2] && dirs[0] != dirs[3] && dirs[1] != dirs[2] && dirs[1] != dirs[3] && dirs[2] != dirs[3];
 }
 
+auto oppositeTable = [6,7,4,5,2,3,0,1,10,11,8,9];
+
 static int CALLS = 0;
 void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node!(float)* c, Node!(float)* d, size_t ai, size_t bi, size_t ci, size_t di){
     auto types = [nodeType(a), nodeType(b), nodeType(c), nodeType(d)];
@@ -559,6 +565,8 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
     // if(!testDirs([ai,bi,ci,di])){
     //     writeln("failed test"); //ok
     // }
+
+    
     
 
     if(types[0] != NODE_TYPE_INTERIOR && types[1] != NODE_TYPE_INTERIOR && types[2] != NODE_TYPE_INTERIOR && types[3] != NODE_TYPE_INTERIOR){ //none of the nodes are interior
@@ -567,8 +575,8 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
         //generate 
 
 
-
         if(types[0] == NODE_TYPE_HOMOGENEOUS || types[1] == NODE_TYPE_HOMOGENEOUS || types[2] == NODE_TYPE_HOMOGENEOUS || types[3] == NODE_TYPE_HOMOGENEOUS){
+            
             return;//TODO why ?
         }
        
@@ -581,7 +589,9 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
         Vector3!float normal;
 
         size_t index = -1;
-        size_t minInvDepth = size_t.max; //== find node with max depth
+        size_t minDepth = size_t.max;
+
+        int[4] sc;
         
 
         foreach(i;0..4){
@@ -590,33 +600,63 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
             auto p1 = (node.cornerSigns >> p.x) & 1;
             auto p2 = (node.cornerSigns >> p.y) & 1;
 
-            if(node.depth < minInvDepth){
-                if(p1 != p2){
-                    index = i;
-                }else{
-                    index = -1;
-                }
-                minInvDepth = node.depth;
+            if(node.depth < minDepth){
+                index = i;
+                minDepth = node.depth;
             }
+
+            if(p1 != p2){
+                sc[i] = 1;
+            }else{
+                sc[i] = 0;
+            }
+
+
         }
 
-        if(index == -1) return;
+        if(index == -1 || sc[index] == 0) return;
 
         foreach(i;0..4){
             auto node = cast(HeterogeneousNode!float*) nodes[i];
             //auto minimizer = solveQEF((*node).qef); //TODO DUPLICATION, use buffers to calc this one time
             pos[i] = node.qef.minimizer;
             
-              
         }
 
         auto node = (* cast(HeterogeneousNode!float*) nodes[index]);
 
         normal = node.hermiteData[configs[index]].normal;
 
-        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[1], pos[2]),color, normal);
+        auto nodesh = [asHetero!float(a),asHetero!float(b),asHetero!float(c),asHetero!float(d)];
 
-        addTriangleColorNormal(renderer, Triangle!(float,3)(pos[0], pos[2], pos[3]),color, normal);
+        if(nodes[0] == nodes[1]){//same nodes => triangle
+            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+        }else if(nodes[1] == nodes[3]){
+            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+        }else if(nodes[3] == nodes[2]){
+            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[3]).qef.minimizer ), color, normal);
+        }else if(nodes[2] == nodes[0]){
+            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[1]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+        }else{
+
+            //TODO call edgeProc in such way that opposite table is not needed + implement flipping for culling back faces
+            if(oppositeTable[ai] == bi){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[1]).qef.minimizer ), color, normal);
+                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+            }else{
+                if(oppositeTable[ai] == ci){
+                    addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+                    addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[2]).qef.minimizer, (*nodesh[3]).qef.minimizer ), color, normal);
+                }else{
+                    addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[3]).qef.minimizer ), color, normal);
+                    addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+                }
+            }
+
+           
+
+            
+        }
 
         
 

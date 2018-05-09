@@ -443,7 +443,7 @@ struct HomogeneousNode(T){ //TODO tell D to make this struct 1 byte long(if poss
 //Leaf node
 struct HeterogeneousNode(T){
     ubyte __node_type__ = NODE_TYPE_HETEROGENEOUS;
-    ubyte depth; //INVERTED! depth
+    ubyte depth;
 
     ubyte cornerSigns; //signs or corner points (1 bit - negative, 0 bit - positive or zero)
     //same as config in umdc
@@ -452,11 +452,22 @@ struct HeterogeneousNode(T){
     QEF!T qef;
     HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
     //uint index;//index into vertexBuffer of all minimizers (see how it is done in secret sause, prob remove it from here)
+
+    ubyte getSign(ubyte p){
+        return (cornerSigns >> p) & 1;
+    }
 }
 
 struct AdaptiveVoxelStorage(T){
     uint cellCount; //cell count in one axis in dense uniform grid (when maximum tree depth is reached)
+    ubyte maxDepth;
     Node!(T)* root;
+
+    this(uint cellCount, Node!T* root){
+        this.cellCount = cellCount;
+        this.root = root;
+        this.maxDepth = cast(ubyte) log2(cellCount);
+    }
 }
 
 
@@ -464,7 +475,11 @@ ubyte nodeType(T)(Node!(T)* node){
     return (*node).__node_type__;
 }
 
-InteriorNode!(T) asInterior(Node!T node){
-    return cast(InteriorNode!T) node;
+InteriorNode!(T)* asInterior(T)(Node!T* node){
+    return cast(InteriorNode!T*) node;
+}
+
+HeterogeneousNode!(T)* asHetero(T)(Node!T* node){
+    return cast(HeterogeneousNode!T*) node;
 }
 

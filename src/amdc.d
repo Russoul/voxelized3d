@@ -135,7 +135,9 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
 
 Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy){
 
+    ubyte maxDepth = cast(ubyte) log2(cellCount);
 
+    
 
     auto size = cellCount;
 
@@ -218,17 +220,20 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
             auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = true;
+            (*n).depth = maxDepth;
             grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else if(config == 255){ //fully inside
             auto n = cast(HomogeneousNode!float*) malloc(HomogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HOMOGENEOUS;
             (*n).isPositive = false;
+            (*n).depth = maxDepth;
             grid[indexCell(x,y,z)] = cast(Node!float*)n;
         }else{ //heterogeneous
             auto edges = whichEdgesAreSignedAll(config);
 
             auto n = cast(HeterogeneousNode!float*) malloc(HeterogeneousNode!(float).sizeof);
             (*n).__node_type__ = NODE_TYPE_HETEROGENEOUS;
+            (*n).depth = maxDepth;
 
 
             auto planes = Array!(Plane!float)();
@@ -342,11 +347,11 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
     auto curSize = size;
     
-    auto curDepth = 0;
+    auto curDepth = maxDepth;
 
     while(curSize != 1){
         curSize /= 2;
-        curDepth += 1;
+        curDepth -= 1;
 
         Array!(Node!(float)*) sparseGrid = Array!(Node!(float)*)();
         sparseGrid.reserve(curSize * curSize * curSize);
@@ -464,7 +469,7 @@ void foreachLeaf(alias f)(Node!(float)* node, Cube!float bounds){
 }
 
 
-void faceProc(RenderVertFragDef dat, Node!float*[2] node, int dir){
+void faceProc(RenderVertFragDef dat, Node!float*[2] node, int dir, ref AdaptiveVoxelStorage!float storage){
     if(nodeType(node[0]) == NODE_TYPE_HOMOGENEOUS || nodeType(node[1]) == NODE_TYPE_HOMOGENEOUS){
         return;
     }
@@ -480,11 +485,11 @@ void faceProc(RenderVertFragDef dat, Node!float*[2] node, int dir){
                 if(type[j] != NODE_TYPE_INTERIOR){
                     fcd[j] = node[j];
                 }else{
-                    fcd[j] = (*asInterior[node[j]]).children[c[j]];
+                    fcd[j] = (*asInterior!float(node[j])).children[c[j]];
                 }
             }
 
-            faceProc(dat, fcd, faceProcFaceMask[dir][i][2]);
+            faceProc(dat, fcd, faceProcFaceMask[dir][i][2], storage);
         }
 
         int[4][2] orders = [[ 0, 0, 1, 1 ], [ 0, 1, 0, 1 ]] ;
@@ -494,20 +499,20 @@ void faceProc(RenderVertFragDef dat, Node!float*[2] node, int dir){
         foreach(i;0..4){
             int[4] c = [faceProcEdgeMask[dir][i][1], faceProcEdgeMask[dir][i][2], 
                         faceProcEdgeMask[dir][i][3], faceProcEdgeMask[dir][i][4]];
-            int* order = &orders[faceProcEdgeMask[dir][i][0]];
+            int[4]* order = &orders[faceProcEdgeMask[dir][i][0]];
             foreach(j;0..4){
-                if(type[order[j]] != NODE_TYPE_INTERIOR){
-                    ecd[j] = node[order[j]];
+                if(type[(*order)[j]] != NODE_TYPE_INTERIOR){
+                    ecd[j] = node[(*order)[j]];
                 }else{
-                    ecd[j] = (*asInterior(node)).children[c[j]];
+                    ecd[j] = (*asInterior!float(node[(*order)[j]])).children[c[j]];
                 }
             }
-            edgeProc(dat, ecd, faceProcEdgeMask[dir][i][5]);
+            edgeProc(dat, ecd, faceProcEdgeMask[dir][i][5], storage);
         }
     }
 }
 
-void edgeProc(RenderVertFragDef dat, Node!float*[4] node, int dir){
+void edgeProc(RenderVertFragDef dat, Node!float*[4] node, int dir, ref AdaptiveVoxelStorage!float storage){
     auto type = [nodeType(node[0]), nodeType(node[1]), nodeType(node[2]), nodeType(node[3])];
 
     if(type[0] == NODE_TYPE_HOMOGENEOUS || type[1] == NODE_TYPE_HOMOGENEOUS || type[2] == NODE_TYPE_HOMOGENEOUS || type[3] == NODE_TYPE_HOMOGENEOUS){
@@ -515,7 +520,7 @@ void edgeProc(RenderVertFragDef dat, Node!float*[4] node, int dir){
     }
 
     if(type[0] != NODE_TYPE_INTERIOR && type[1] != NODE_TYPE_INTERIOR && type[2] != NODE_TYPE_INTERIOR && type[3] != NODE_TYPE_INTERIOR){
-        processEdge(dat, node, dir);
+        processEdge(dat, node, dir, storage);
     }else{
         Node!float*[4] ecd;
         foreach(i;0..2){
@@ -527,20 +532,83 @@ void edgeProc(RenderVertFragDef dat, Node!float*[4] node, int dir){
                 if(type[j] != NODE_TYPE_INTERIOR){
                     ecd[j] = node[j];
                 }else{
-                    ecd[j] = (*asInterior(node)).children[c[j]];
+                    ecd[j] = (*asInterior!float(node[j])).children[c[j]];
                 }
             }
 
-            edgeProc(dat, ecd, edgeProcEdgeMask[dir][i][4]);
+            edgeProc(dat, ecd, edgeProcEdgeMask[dir][i][4], storage);
         }
     }
 }
 
-void processEdge(RenderVertFragDef dat, Node!float*[4] node, int dir){
-    //TODO
+void processEdge(RenderVertFragDef dat, Node!float*[4] node, int dir, ref AdaptiveVoxelStorage!float storage){
+    
+    auto color = vec3!float(1.0F,1.0F,1.0F);
+    
+    int type, ht, minht = storage.maxDepth + 1, mini = -1;
+    int[4] sc, flip = [0,0,0,0];
+    int flip2;
+
+
+    foreach(i;0..4){
+        auto lnode = asHetero(node[i]);
+        int ed = processEdgeMask[dir][i];
+        int c1 = edgevmap[ed][0];
+        int c2 = edgevmap[ed][1];
+
+        if( (*lnode).depth < minht){
+            minht = (*lnode).depth;
+            mini = i;
+            if( (*lnode).getSign(cast(ubyte)c1) > 0){
+                flip2 = 1;
+            }else{
+                flip2 = 0;
+            }
+        }
+
+        if( (*lnode).getSign(cast(ubyte)c1) == (*lnode).getSign(cast(ubyte)c2) ){
+            sc[i] = 0;
+        }else{
+            sc[i] = 1;
+        }
+    }
+
+    if( sc[mini] == 1 ){
+
+        auto nodes = [asHetero!float(node[0]), asHetero!float(node[1]), asHetero!float(node[2]), asHetero!float(node[3])];
+
+        if(flip2 == 0){
+            if(nodes[0] == nodes[1]){//same nodes => triangle
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[3]).qef.minimizer, (*nodes[2]).qef.minimizer ), color);
+            }else if(nodes[1] == nodes[3]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[1]).qef.minimizer, (*nodes[2]).qef.minimizer ), color);
+            }else if(nodes[3] == nodes[2]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[1]).qef.minimizer, (*nodes[3]).qef.minimizer ), color);
+            }else if(nodes[2] == nodes[0]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[1]).qef.minimizer, (*nodes[3]).qef.minimizer, (*nodes[2]).qef.minimizer ), color);
+            }else{
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[1]).qef.minimizer, (*nodes[3]).qef.minimizer ), color);
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[3]).qef.minimizer, (*nodes[2]).qef.minimizer ), color);
+            }
+        }else{
+            if(nodes[0] == nodes[1]){//same nodes => triangle
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[2]).qef.minimizer, (*nodes[3]).qef.minimizer ), color);
+            }else if(nodes[1] == nodes[3]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[2]).qef.minimizer, (*nodes[1]).qef.minimizer ), color);
+            }else if(nodes[3] == nodes[2]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[3]).qef.minimizer, (*nodes[1]).qef.minimizer ), color);
+            }else if(nodes[2] == nodes[0]){
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[1]).qef.minimizer, (*nodes[2]).qef.minimizer, (*nodes[3]).qef.minimizer ), color);
+            }else{
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[3]).qef.minimizer, (*nodes[1]).qef.minimizer ), color);
+                addTriangleLinesColor(dat, Triangle!(float,3)( (*nodes[0]).qef.minimizer, (*nodes[2]).qef.minimizer, (*nodes[3]).qef.minimizer ), color);
+            }
+        }
+    }
+    
 }
 
-void cellProc(RenderVertFragDef dat, Node!float* node){
+void cellProc(RenderVertFragDef dat, Node!float* node, ref AdaptiveVoxelStorage!float storage){
     if(nodeType(node) == NODE_TYPE_HOMOGENEOUS) return;
 
     auto type = nodeType(node);
@@ -548,7 +616,7 @@ void cellProc(RenderVertFragDef dat, Node!float* node){
     if(type == NODE_TYPE_INTERIOR){
         auto inode = asInterior(node);
         foreach(i;0..8){
-            cellProc(dat, (*inode).children[i]);
+            cellProc(dat, (*inode).children[i], storage);
         }
 
         foreach(i;0..12){
@@ -556,7 +624,7 @@ void cellProc(RenderVertFragDef dat, Node!float* node){
             Node!float*[2] fcd;
             fcd[0] = (*inode).children[c[0]];
             fcd[1] = (*inode).children[c[1]];
-            faceProc(dat, fcd, cellProcFaceMask[i][2]);
+            faceProc(dat, fcd, cellProcFaceMask[i][2], storage);
         }
 
         foreach(i;0..6){
@@ -566,7 +634,7 @@ void cellProc(RenderVertFragDef dat, Node!float* node){
                 ecd[j] = (*inode).children[c[j]];
             }
 
-            edgeProc(dat, ecd, cellProcEdgeMask[i][4]);
+            edgeProc(dat, ecd, cellProcEdgeMask[i][4], storage);
         }
     }
 }
