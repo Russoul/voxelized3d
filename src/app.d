@@ -19,7 +19,7 @@ import render;
 import math;
 import umdc;
 
-import amdc_;
+import amdc;
 
 
 
@@ -557,9 +557,10 @@ void runVoxelized(){
     //umdc.extract!(typeof(q))(q, offset, a, size, acc, colorizer, rendererTrianglesLight, rendererLines);
     import hermite;
 
-    // auto storage = UniformVoxelStorage!float(size);
+    
 
-    // StopWatch watch;
+    StopWatch watch;
+    size_t ms;
 
     
     // setConstantMem();
@@ -579,15 +580,22 @@ void runVoxelized(){
 
     
     // watch.start();
-    // umdc.sample!(typeof(q))(q, offset, a, acc, storage);
-    // umdc.extract(storage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
+    // auto ustorage = UniformVoxelStorage!float(size);
+    // umdc.sample!(typeof(q))(q, offset, a, acc, ustorage);
+    // umdc.extract(ustorage, offset, a, colorizer, rendererTrianglesLight, rendererLines);
     // watch.stop();
-    // size_t ms;
     // watch.peek().split!"msecs"(ms);
-    // printf("Whole process took %d ms", ms);
+    // watch.reset();
+    // printf("Whole process of uniform gen took %d ms\n", ms);
     // stdout.flush();
 
+
+    watch.start();
     auto tree = sample!(typeof(q))(q, offset, a, size, acc);
+    watch.stop();
+    watch.peek().split!"msecs"(ms);
+    watch.reset();
+    printf("Tree generation and collapsing homo leaves took %d\n", ms);
 
     auto fhet = (Node!float* node, Cube!float bounds){
         if(nodeType(node) == NODE_TYPE_HETEROGENEOUS){
@@ -597,13 +605,19 @@ void runVoxelized(){
             addCubeBounds(rendererLines, bounds, green);
         }
     };
-
-    auto storage = AdaptiveVoxelStorage!float(size, tree);
-
     //foreachLeaf!(fhet)(tree, bounds);
-    cellProc(rendererTrianglesLight, tree);
-    //cellProc(rendererLines, tree, storage);
 
+    auto astorage = AdaptiveVoxelStorage!float(size, tree);
+
+    
+
+
+    watch.start();
+    cellProc(rendererTrianglesLight, tree);
+    watch.stop();
+    watch.peek().split!"msecs"(ms);
+    printf("Extraction took %d ms\n", ms);
+    stdout.flush();
 
     freeFastNoise(noise);
 
@@ -686,9 +700,9 @@ void runVoxelized(){
 
 	StopWatch sw;
 	sw.start();
-    enum n = 100;
 
 
+    glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	while(!glfwWindowShouldClose(win)){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
