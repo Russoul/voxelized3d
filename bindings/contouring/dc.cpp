@@ -31,7 +31,19 @@
  *	argv[3]:	(OPTIONAL) name of secondary output file (.ply format) when using dual contouring, storing self-intersecting triangles.
 */
 
-int main( int args, char* argv[] )
+int main(int args, char* argv[]){
+    float t[3][3];
+
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            t[i][j] = 3*i + j;
+        }
+    }
+
+    printf("%f %f %f %f", t[0], t[1], t[2], t[3]);
+}
+
+int main1( int args, char* argv[] )
 {
 	// Reading input file
 	Octree* mytree = new Octree( argv[1] ) ;

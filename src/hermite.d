@@ -410,7 +410,7 @@ struct QEF(T){
     Vector3!T massPoint;
 
     ubyte n; //mass point dimension
-    Vector3!T minimizer;
+    Vector3!T minimizer;//relative to mass point
 }
 
 const ubyte NODE_TYPE_INTERIOR = 1;
@@ -481,5 +481,9 @@ InteriorNode!(T)* asInterior(T)(Node!T* node){
 
 HeterogeneousNode!(T)* asHetero(T)(Node!T* node){
     return cast(HeterogeneousNode!T*) node;
+}
+
+HomogeneousNode!(T)* asHomo(T)(Node!T* node){
+    return cast(HomogeneousNode!T*) node;
 }
 

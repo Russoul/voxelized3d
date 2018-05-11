@@ -591,7 +591,7 @@ void runVoxelized(){
 
 
     watch.start();
-    auto tree = sample!(typeof(q))(q, offset, a, size, acc);
+    auto tree = sample!(typeof(q))(q, offset, a, size, acc, 0.00001F);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     watch.reset();
@@ -600,20 +600,35 @@ void runVoxelized(){
     auto fhet = (Node!float* node, Cube!float bounds){
         if(nodeType(node) == NODE_TYPE_HETEROGENEOUS){
             addCubeBounds(rendererLines, bounds, red);
-            addCubeBounds(rendererLines, Cube!float( (*asHetero!float(node) ).qef.minimizer, bounds.extent / 32 ), yellow);
+            addCubeBounds(rendererLines, Cube!float( asHetero!float(node).qef.minimizer + asHetero!float(node).qef.massPoint, bounds.extent / 32 ), yellow);
+        
+            foreach(i;0..8){
+                auto sign = asHetero!float(node).getSign(cast(ubyte)i);
+                
+                auto center = bounds.center;
+                auto rel = cornerPointsOrigin[i] * bounds.extent;
+                auto point = center + rel;
+
+                Vector3!float color;
+                if(sign == 1){
+                    color = black;
+                }else{
+                    color = white;
+                }
+
+                addCubeBounds(rendererLines, Cube!float(point, bounds.extent / 32), color);
+            }
+        
         }else{
             addCubeBounds(rendererLines, bounds, green);
         }
     };
-    //foreachLeaf!(fhet)(tree, bounds);
-
-    auto astorage = AdaptiveVoxelStorage!float(size, tree);
+    foreachLeaf!(fhet)(tree, bounds);
 
     
-
-
     watch.start();
-    cellProc(rendererTrianglesLight, tree);
+    auto astorage = AdaptiveVoxelStorage!float(size, tree);
+    extract(rendererTrianglesLight, astorage);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     printf("Extraction took %d ms\n", ms);

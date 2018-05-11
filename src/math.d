@@ -191,6 +191,7 @@ Vector!(T,N) average(T, size_t N)(const ref Array!(Matrix!(T,N,1)) vectors){
 
 }
 
+//TODO test it better, looks like it does not work correctly
 void gramSchmidt(T, size_t N, size_t M)(const ref Matrix!(T,N,M) input, out Matrix!(T,N,M) output) if(M <= N){
     for(size_t i = 0; i < M; ++i){
 
@@ -224,6 +225,7 @@ void gramSchmidt(T, size_t N, size_t M)(const ref Matrix!(T,N,M) input, out Matr
     }
 }
 
+//TODO test it better, looks like it does not work correctly
 void qr(T, size_t N, size_t M)(const ref Matrix!(T,N,M) A, out Matrix!(T,N,M) Q, out Matrix!(T,M,M) R) if(M <= N){
     gramSchmidt(A, Q);
 
@@ -243,7 +245,7 @@ void qr(T, size_t N, size_t M)(const ref Matrix!(T,N,M) A, out Matrix!(T,N,M) Q,
 
 //solve linear system: Rx = b where R is n * n upper triangular matrix (just back substitute)
 void solveRxb(T, size_t N)(const ref Matrix!(T,N,N) R, const ref Matrix!(T,N,1) b, out Matrix!(T,N,1) x){
-    for(int i = N - 1; i >= 0; --i){ //here `i` must be SIGNED intergral number !
+    for(int i = N - 1; i >= 0; --i){ //here `i` must be SIGNED integral number !
         T sum = traits.zero!T();
         for(size_t j = i + 1; j < N; ++j){
             sum += R[i,j] * x[j];
@@ -258,4 +260,106 @@ bool checkPointInsideCube(const ref Vector3!float point, const ref Cube!float cu
     return point.x < cube.center.x + cube.extent && point.x > cube.center.x - cube.extent &&
     point.y < cube.center.y + cube.extent && point.y > cube.center.y - cube.extent &&
     point.z < cube.center.z + cube.extent && point.z > cube.center.z - cube.extent;
+}
+
+
+// for reducing two upper triangular systems of equations into 1
+//mat1 and mat2 are 4 by 4 matrices
+void qr ( float *mat1, float *mat2, float *rvalue )
+{
+	int i, j;
+	float [ 4 ] [ 8 ] temp1 ;
+
+	for ( i = 0; i < 4; i++ )
+	{
+		for ( j = 0; j < i; j++ )
+		{
+			temp1 [ i ] [ j ] = 0;
+			temp1 [ i + 4 ] [ j ] = 0;
+		}
+		for ( j = i; j < 4; j++ )
+		{
+			temp1 [ i ] [ j ] = mat1 [ ( 7 * i - i * i ) / 2 + j ];
+			temp1 [ i + 4 ] [ j ] = mat2 [ ( 7 * i - i * i ) / 2 + j ];
+		}
+	}
+
+	qr ( temp1, 8, rvalue );
+}
+
+// WARNING: destroys eqs in the process
+private void qr (ref float[4][8] eqs, int num, float *rvalue )
+{
+	int i, j, k;
+
+	qr ( eqs, num, 0.000001f );
+	for ( i = 0; i < 10; i++ )
+	{
+		rvalue [ i ] = 0;
+	}
+
+	k = 0;
+	for ( i = 0; i < num && i < 4; i++ )
+	{
+		for ( j = i; j < 4; j++ )
+		{
+			rvalue [ k++ ] = eqs [ i ] [ j ];
+		}
+	}
+}
+
+private void qr (ref float[4][8] eqs, int num, float tol )
+{
+	int i, j, k;
+	float a, b, mag, temp;
+
+	for ( i = 0; i < 4 && i < num; i++ )
+	{
+		for ( j = i + 1; j < num; j++ )
+		{
+			a = eqs [ i ] [ i ];
+			b = eqs [ j ] [ i ];
+
+			if ( fabs ( a ) > 0.000001f || fabs ( b ) > 0.000001f )
+			{
+				mag = cast(float)sqrt ( a * a + b * b );
+				a /= mag;
+				b /= mag;
+
+				for ( k = 0; k < 4; k++ )
+				{
+					temp = a * eqs [ i ] [ k ] + b * eqs [ j ] [ k ];
+					eqs [ j ] [ k ] = b * eqs [ i ] [ k ] - a * eqs [ j ] [ k ];
+					eqs [ i ] [ k ] = temp;
+				}
+			}
+		}
+		for ( j = i - 1; j >= 0; j-- )
+		{
+			if ( eqs [ j ] [ j ] < 0.000001f && eqs [ j ] [ j ] > -0.000001f )
+			{
+				a = eqs [ i ] [ i ];
+				b = eqs [ j ] [ i ];
+
+				if ( fabs ( a ) > 0.000001f || fabs ( b ) > 0.000001f )
+				{
+					mag = cast(float)sqrt ( a * a + b * b );
+					a /= mag;
+					b /= mag;
+
+					for ( k = 0; k < 4; k++ )
+					{
+						temp = a * eqs [ i ] [ k ] + b * eqs [ j ] [ k ];
+						eqs [ j ] [ k ] = b * eqs [ i ] [ k ] - a * eqs [ j ] [ k ];
+						eqs [ i ] [ k ] = temp;
+					}
+				}
+			}
+		}
+	}
+
+}
+
+extern(C){
+    float qef_solve_d(float* AtA_tri, float* Atb, float* massPoint, float* minimizer);
 }

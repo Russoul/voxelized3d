@@ -10,7 +10,7 @@ import std.datetime.stopwatch;
 import std.parallelism;
 import std.range;
 
-import core.stdc.stdlib : malloc;
+import core.stdc.stdlib : malloc, free;
 
 import math;
 import matrix;
@@ -52,10 +52,13 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
     Ab.reserve(n * 4);
     Ab.length = n * 4;
 
+
+    //auto Ab = zero!(float, 12,4);
+
     import lapacke;
 
     for(size_t i = 0; i < n; ++i){
-        Ab[4*i]   = planes[i].normal.x;
+        Ab[4*i+0]   = planes[i].normal.x;
         Ab[4*i+1] = planes[i].normal.y;
         Ab[4*i+2] = planes[i].normal.z;
 
@@ -65,9 +68,8 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
     
 
     float[4] tau;
-
-
     LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
+
 
     auto A = zero!(float,3,3)();
     for(size_t i = 0; i < 3; ++i){
@@ -76,28 +78,32 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
         }
     }
 
+
+
     auto b = vec3!float(Ab[3], Ab[7], Ab[11]);
 
-    qef.a11 = Ab[0];
-    qef.a12 = Ab[1];
-    qef.a13 = Ab[2];
-    qef.a22 = Ab[5];
-    qef.a23 = Ab[6];
-    qef.a33 = Ab[10];
 
-    qef.b1 = Ab[3];
-    qef.b2 = Ab[7];
-    qef.b3 = Ab[11];
-    
-    if(n >= 4){ //TODO ?
-        qef.r = Ab[15];
+    float rs;
+    if(n >= 4){
+        rs = Ab[15] * Ab[15];
     }else{
-        qef.r = 0;
+        rs = 0;
     }
 
-    qef.massPoint = centroid;
 
-    
+    qef.a11 = A[0,0];
+    qef.a12 = A[0,1];
+    qef.a13 = A[0,2];
+    qef.a22 = A[1,1];
+    qef.a23 = A[1,2];
+    qef.a33 = A[2,2];
+    qef.b1 = b[0];
+    qef.b2 = b[1];
+    qef.b3 = b[2];
+
+    qef.r = rs;
+
+    qef.massPoint = centroid;
 
 
     auto U = zero!(float,3,3);
@@ -107,7 +113,9 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
 
     float[2] cache;
 
+    //TODO use method for sym matrices
     LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+
 
 
     size_t dim = 3;
@@ -127,13 +135,194 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
 
     auto minimizer = mult(pinv, b);
 
+    qef.minimizer = minimizer;
+
+
     qef.n = cast(ubyte)dim;
 
-    qef.minimizer = centroid + minimizer;
+
+    
 
 }
 
-Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy){
+
+bool mergeQEFs(QEF!float** qef, size_t count, out QEF!float collapsed, float thres){
+
+
+    // float[16] Ab;
+
+    // Ab[0] = qef[0].a11;
+    // Ab[1] = qef[0].a12;
+    // Ab[2] = qef[0].a13;
+    // Ab[3] = qef[0].b1;
+    // Ab[4] = 0;
+    // Ab[5] = qef[0].a22;
+    // Ab[6] = qef[0].a23;
+    // Ab[7] = qef[0].b2;
+    // Ab[8] = 0;
+    // Ab[9] = 0;
+    // Ab[10] = qef[0].a33;
+    // Ab[11] = qef[0].b3;
+    // Ab[12] = 0;
+    // Ab[13] = 0;
+    // Ab[14] = 0;
+    // Ab[15] = qef[0].r;
+
+    // writeln("before");
+    // writeln(Ab);
+
+    // foreach(i;1..count){
+    //     float[16] second;
+
+    //     second[0] = qef[i].a11;
+    //     second[1] = qef[i].a12;
+    //     second[2] = qef[i].a13;
+    //     second[3] = qef[i].b1;
+    //     second[4] = 0;
+    //     second[5] = qef[i].a22;
+    //     second[6] = qef[i].a23;
+    //     second[7] = qef[i].b2;
+    //     second[8] = 0;
+    //     second[9] = 0;
+    //     second[10] = qef[i].a33;
+    //     second[11] = qef[i].b3;
+    //     second[12] = 0;
+    //     second[13] = 0;
+    //     second[14] = 0;
+    //     second[15] = qef[i].r;
+
+    //     qr(Ab.ptr, second.ptr, Ab.ptr);
+    // }
+
+    auto Ab = Array!float();
+    Ab.reserve(16 * count);
+    Ab.length = 16 * count;
+
+    import lapacke;
+
+
+
+    foreach(i;0..count){
+       Ab[16*i + 0] = qef[i].a11;
+       Ab[16*i + 1] = qef[i].a12;
+       Ab[16*i + 2] = qef[i].a13;
+       Ab[16*i + 3] = qef[i].b1;
+       Ab[16*i + 4] = 0;
+       Ab[16*i + 5] = qef[i].a22;
+       Ab[16*i + 6] = qef[i].a23;
+       Ab[16*i + 7] = qef[i].b2;
+       Ab[16*i + 8] = 0;
+       Ab[16*i + 9] = 0;
+       Ab[16*i + 10] = qef[i].a33;
+       Ab[16*i + 11] = qef[i].b3;
+       Ab[16*i + 12] = 0;
+       Ab[16*i + 13] = 0;
+       Ab[16*i + 14] = 0;
+       Ab[16*i + 15] = qef[i].r;
+    }
+
+    
+
+    float[4] tau;
+
+
+    LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, 4 * cast(int)count, 4, &Ab[0], 4, tau.ptr);
+
+    //writeln("after");
+    //writeln(Ab.array);
+
+    collapsed.r = Ab[15] * Ab[15];
+
+
+    if(collapsed.r > thres){
+        return false;
+    }
+
+    auto A = zero!(float,3,3)();
+    for(size_t i = 0; i < 3; ++i){
+        for(size_t j = i; j < 3; ++j){
+            A[i,j] = Ab[4*i + j];
+        }
+    }
+
+    auto b = vec3!float(Ab[3], Ab[7], Ab[11]);
+
+    collapsed.a11 = Ab[0];
+    collapsed.a12 = Ab[1];
+    collapsed.a13 = Ab[2];
+    collapsed.a22 = Ab[5];
+    collapsed.a23 = Ab[6];
+    collapsed.a33 = Ab[10];
+
+    collapsed.b1 = Ab[3];
+    collapsed.b2 = Ab[7];
+    collapsed.b3 = Ab[11];
+    
+    size_t dim = qef[0].n;
+    Vector3!float centroid = qef[0].massPoint;
+    size_t ccount = 1;
+    
+    
+
+    foreach(j;1..count){
+        if(qef[j].n == dim){
+            centroid = centroid + qef[j].massPoint;
+            ccount += 1;
+        }
+        else if(qef[j].n > dim){
+            dim = qef[j].n;
+            centroid = qef[j].massPoint;
+            ccount = 1;
+        }
+    }
+
+    
+
+    centroid = centroid / ccount;
+
+
+    //writeln(centroid);
+
+
+    collapsed.massPoint = centroid;
+    collapsed.n = cast(ubyte)dim;
+
+    
+
+
+    auto U = zero!(float,3,3);
+    auto VT = U;
+
+    auto S = zero!(float,3,1);
+
+    float[2] cache;
+
+    LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = diag3(S[0], S[1], S[2]);
+
+    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
+
+    auto minimizer = mult(pinv, b);
+
+    
+
+    collapsed.minimizer = minimizer;
+
+
+    return true;
+
+}
+
+Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t cellCount, size_t accuracy, float thres){
 
     ubyte maxDepth = cast(ubyte) log2(cellCount);
     
@@ -234,6 +423,9 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
             (*n).__node_type__ = NODE_TYPE_HETEROGENEOUS;
             (*n).depth = maxDepth;
 
+            HermiteData!float*[12] zeroedData;
+            n.hermiteData = zeroedData;
+
 
             auto planes = Array!(Plane!float)();
             Vector3!float centroid = zero3!float();
@@ -287,8 +479,11 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
 
         Node!(float)*[8] nodes = [n0,n1,n2,n3,n4,n5,n6,n7];
 
-        bool inited;
+        size_t homoCount = 0;
         bool isPositive;
+
+        QEF!float*[8] qefs;
+        size_t qefCount = 0;
 
         pragma(inline, true)
         void setInterior(){
@@ -300,31 +495,93 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
             sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)interior;
         }
         
+        
         foreach(node; nodes){
             auto cur = (*node).__node_type__;
-            if(cur == NODE_TYPE_HETEROGENEOUS || cur == NODE_TYPE_INTERIOR){
+            if(cur == NODE_TYPE_INTERIOR){
                 setInterior();
                 return;
-            }else{ //homogeneous
-                if(!inited){
-                    inited = true;
-                    isPositive = (*(cast(HomogeneousNode!(float)*) node)).isPositive;
-                }else{
-                    if((*(cast(HomogeneousNode!(float)*) node)).isPositive != isPositive){
-                        setInterior();
-                        return;
-                    }
-                }
+            }else if(cur == NODE_TYPE_HOMOGENEOUS) { //homogeneous
+                isPositive = (*(cast(HomogeneousNode!(float)*) node)).isPositive;
+                homoCount += 1;
+            }else{ //heterogeneous
+                qefs[qefCount] = &asHetero!float(node).qef;
+                qefCount += 1;
             }  
         }
 
-        //all cells are fully in or out
-        auto homo = cast(HomogeneousNode!(float)*) malloc(HomogeneousNode!(float).sizeof);
-        (*homo).isPositive = isPositive; 
-        (*homo).depth = cast(ubyte) curDepth;
-        (*homo).__node_type__ = NODE_TYPE_HOMOGENEOUS;
+        //all same homo or homo + hetero
+        if(homoCount == 8){
+             //all cells are fully in or out
+            auto homo = cast(HomogeneousNode!(float)*) malloc(HomogeneousNode!(float).sizeof);
+            (*homo).isPositive = isPositive; 
+            (*homo).depth = cast(ubyte) curDepth;
+            (*homo).__node_type__ = NODE_TYPE_HOMOGENEOUS;
 
-        sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)homo;
+            sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)homo;
+
+            foreach(l;0..8){
+                free(nodes[l]);
+            }
+        }else{
+            QEF!float mergedQEF;
+            bool merged = mergeQEFs(qefs.ptr, qefCount, mergedQEF, thres);
+            if(merged){
+                auto hetero = cast(HeterogeneousNode!(float)*) malloc(HeterogeneousNode!(float).sizeof);
+                hetero.depth = cast(ubyte) curDepth;
+                hetero.__node_type__ = NODE_TYPE_HETEROGENEOUS;
+                hetero.qef = mergedQEF;
+                hetero.cornerSigns = 0;
+                foreach(l;0..8){
+                    if(nodes[l].__node_type__ == NODE_TYPE_HOMOGENEOUS){
+                        hetero.cornerSigns |= !asHomo!float(nodes[l]).isPositive << l;
+                    }else{
+                        hetero.cornerSigns |= ((asHetero!float(nodes[l]).cornerSigns >> l) & 1) << l;
+                    }
+                }
+
+                HermiteData!float*[12] data;
+
+                foreach(o;0..12){
+                    foreach(l;0..8){
+                        if(nodes[l].__node_type__ == NODE_TYPE_HETEROGENEOUS){
+                            auto hnode = asHetero!float(nodes[l]);
+                            if(hnode.hermiteData[o]){
+                                if(!data[o]){
+                                    data[o] = cast(HermiteData!float*) malloc((HermiteData!float).sizeof);
+                                    data[o].normal = zero3!float();
+                                    data[o].intersection = zero3!float(); //TODO do we even need this ?
+                                }
+
+                                data[o].normal = data[o].normal + hnode.hermiteData[o].normal;
+
+                            }
+                        }
+                    }
+
+                    if(data[o])
+                        data[o].normal = data[o].normal.normalize();
+                }
+
+                hetero.hermiteData = data;
+
+                sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(float)*)hetero;
+
+                foreach(l;0..8){
+                    free(nodes[l]);
+                }
+
+                //setInterior();//TODO
+            }else{
+                setInterior();
+            }
+
+            
+        }
+
+       
+
+       
     }
 
 
@@ -374,55 +631,6 @@ Node!(float)* sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, 
     return tree;
 
 }
-
-
-Vector3!float solveQEF(ref QEF!float qef){
-
-    auto A = mat3!float(
-        qef.a11, qef.a12, qef.a13,
-        qef.a12, qef.a22, qef.a23,
-        qef.a13, qef.a23, qef.a33
-    );
-
-    auto b = vec3!float(qef.b1, qef.b2, qef.b3);
-
-    auto U = zero!(float,3,3);
-    auto VT = U;
-
-    auto S = zero!(float,3,1);
-
-    float[2] cache;
-
-    import lapacke;
-    auto res = LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
-
-
-    foreach(i;0..3){
-        if(S[i].abs() < 0.1F){
-            S[i] = 0.0F;
-        }else{
-            S[i] = 1.0F / S[i];
-        }
-    }
-
-    auto Sm = diag3(S[0], S[1], S[2]);
-
-    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
-
-    auto minimizer = mult(pinv, b);
-
-
-    return minimizer;
-
-}
-
-// void generateIndices(Node!(float)* node, Cube!float bounds, ref Array!(Vector3!float) vertexBuffer){
-//     foreachHeterogeneousLeaf!((node, bounds) => {
-//         auto minimizer = solveQEF((*node).qef);
-//         vertexBuffer.insertBack(minimizer);
-//         (*node).index = cast(uint) vertexBuffer.length - 1;
-//     })(node, bounds);
-// }
 
 
 auto faceProcTable2 = [1, 0, 1, 0,
@@ -575,7 +783,7 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
                 sc[i] = 0;
             }
 
-            pos[i] = node.qef.minimizer;
+            pos[i] = node.qef.minimizer + node.qef.massPoint;
 
 
         }
@@ -586,30 +794,36 @@ void edgeProc(RenderVertFragDef renderer, Node!(float)* a, Node!(float)* b, Node
 
         normal = node.hermiteData[configs[index]].normal;
 
-        auto nodesh = [asHetero!float(a),asHetero!float(b),asHetero!float(c),asHetero!float(d)];
 
-        if(nodes[0] == nodes[1]){//same nodes => triangle
-            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
-        }else if(nodes[1] == nodes[3]){
-            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
-        }else if(nodes[3] == nodes[2]){
-            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[3]).qef.minimizer ), color, normal);
-        }else if(nodes[2] == nodes[0]){
-            addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[1]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
-        }else{
-
-            if(!flip2){
-                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[1]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
-                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[2]).qef.minimizer, (*nodesh[3]).qef.minimizer ), color, normal);
+        if(!flip2){
+            if(nodes[0] == nodes[1]){//same nodes => triangle
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
+            }else if(nodes[1] == nodes[3]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
+            }else if(nodes[3] == nodes[2]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[3] ), color, normal);
+            }else if(nodes[2] == nodes[0]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[2], pos[3] ), color, normal);
             }else{
-                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[2]).qef.minimizer, (*nodesh[1]).qef.minimizer ), color, normal);
-                addTriangleColorNormal(renderer, Triangle!(float,3)( (*nodesh[0]).qef.minimizer, (*nodesh[3]).qef.minimizer, (*nodesh[2]).qef.minimizer ), color, normal);
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
             }
+        }else{
+            if(nodes[0] == nodes[1]){//same nodes => triangle
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+            }else if(nodes[1] == nodes[3]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
+            }else if(nodes[3] == nodes[2]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[1] ), color, normal);
+            }else if(nodes[2] == nodes[0]){
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[3], pos[2] ), color, normal);
+            }else{
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
+                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+            }
+        }
 
         
-
-            
-        }
 
         
 
@@ -663,6 +877,10 @@ void cellProc(RenderVertFragDef renderer, Node!(float)* node){ //ok
             
         default: break;
     }
+}
+
+void extract(RenderVertFragDef renderer, ref AdaptiveVoxelStorage!float storage){
+    cellProc(renderer, storage.root);
 }
 
 void foreachHeterogeneousLeaf(alias f)(Node!(float)* node, Cube!float bounds){
