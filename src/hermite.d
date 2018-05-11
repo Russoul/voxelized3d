@@ -18,7 +18,7 @@ import traits;
 import graphics;
 import render;
 
-
+alias FP = double;
 
 //for each cell configuration(of 256 possible) tells if there are edges {0,3,8} in that cell, {-2} is used to stop reading the array(of 3 elements) futher
 int[3][256] specialTable1 = [
@@ -306,30 +306,30 @@ Vector3!(size_t)[12] specialTable3 = [
 ];
 
 //TODO move this to a better place(because it is also used outside of the isosurface extraction problem)
-Vector3!float[8] cornerPoints = [
-                                    vecS!([0.0f,0.0f,0.0f]),
-                                    vecS!([1.0f,0.0f,0.0f]), //clockwise starting from zero y min
-                                    vecS!([1.0f,0.0f,1.0f]),
-                                    vecS!([0.0f,0.0f,1.0f]),
+Vector3!FP[8] cornerPoints = [
+                                    vec3!FP(0.0,0.0,0.0),
+                                    vec3!FP(1.0,0.0,0.0), //clockwise starting from zero y min
+                                    vec3!FP(1.0,0.0,1.0),
+                                    vec3!FP(0.0,0.0,1.0),
 
 
-                                    vecS!([0.0f,1.0f,0.0f]),
-                                    vecS!([1.0f,1.0f,0.0f]), //y max
-                                    vecS!([1.0f,1.0f,1.0f]),
-                                    vecS!([0.0f,1.0f,1.0f])
+                                    vec3!FP(0.0,1.0,0.0),
+                                    vec3!FP(1.0,1.0,0.0), //y max
+                                    vec3!FP(1.0,1.0,1.0),
+                                    vec3!FP(0.0,1.0,1.0)
 ];
 
-Vector3!float[8] cornerPointsOrigin = [
-                                    vecS!([-1.0f,-1.0f,-1.0f]),
-                                    vecS!([1.0f,-1.0f,-1.0f]), //clockwise starting from zero y min
-                                    vecS!([1.0f,-1.0f,1.0f]),
-                                    vecS!([-1.0f,-1.0f,1.0f]),
+Vector3!FP[8] cornerPointsOrigin = [
+                                    vec3!FP(-1.0,-1.0,-1.0),
+                                    vec3!FP(1.0,-1.0,-1.0), //clockwise starting rom zero y min
+                                    vec3!FP(1.0,-1.0,1.0),
+                                    vec3!FP(-1.0,-1.0,1.0),
 
 
-                                    vecS!([-1.0f,1.0f,-1.0f]),
-                                    vecS!([1.0f,1.0f,-1.0f]), //y max
-                                    vecS!([1.0f,1.0f,1.0f]),
-                                    vecS!([-1.0f,1.0f,1.0f])
+                                    vec3!FP(-1.0,1.0,-1.0),
+                                    vec3!FP(1.0,1.0,-1.0), //y max
+                                    vec3!FP(1.0,1.0,1.0),
+                                    vec3!FP(-1.0,1.0,1.0)
 ];
 
 

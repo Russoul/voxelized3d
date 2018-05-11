@@ -149,7 +149,7 @@ extern (C) void glfwSwapInterval(int mode);
 
 // ============= Fast Noise library ======================
 
-alias FN_DECIMAL = float;
+alias FN_DECIMAL = double;
 extern (C++){
 
 
@@ -241,9 +241,6 @@ extern (C){
 
     void sampleGPU(float3 offset, float a, uint acc, UniformVoxelStorage!float* storage);
     void setConstantMem(); //TODO free it ?
-
-
-    void setStackSize(size_t MB);
 }
 
 // =======================================================

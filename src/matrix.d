@@ -167,7 +167,7 @@ Matrix!(T,N,M) zero(T, size_t N, size_t M)(){
 pragma(inline, true)
 Vector3!T zero3(T)(){
 	auto z = traits.zero!T();
-	return vec3!float(z,z,z);
+	return vec3!T(z,z,z);
 }
 
 pragma(inline,true)

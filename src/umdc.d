@@ -361,7 +361,7 @@ uint[256] vertexNumTable = [
 
 
 
-Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) line, size_t n, ref DenFn3 f){
+Vector3!T sampleSurfaceIntersection(T,alias DenFn3)(const ref Line!(T,3) line, size_t n, ref DenFn3 f){
     auto ext = line.end - line.start;
     auto norm = ext.norm();
     auto dir = ext / norm;
@@ -388,13 +388,13 @@ Vector3!float sampleSurfaceIntersection(alias DenFn3)(const ref Line!(float,3) l
 
 }
 
-Vector3!float calculateNormal(alias DenFn3)(Vector3!float point, float eps, ref DenFn3 f){
+Vector3!T calculateNormal(T, alias DenFn3)(Vector3!T point, T eps, ref DenFn3 f){
 
-    float d = f(Vector3!float([point.x, point.y, point.z]));
+    T d = f(Vector3!T([point.x, point.y, point.z]));
 
-    return Vector3!float([f(Vector3!float([point.x + eps, point.y, point.z])) - d,
-                          f(Vector3!float([point.x, point.y + eps, point.z])) - d,
-                          f(Vector3!float([point.x, point.y, point.z + eps])) - d]).normalize();
+    return Vector3!T([f(Vector3!T([point.x + eps, point.y, point.z])) - d,
+                          f(Vector3!T([point.x, point.y + eps, point.z])) - d,
+                          f(Vector3!T([point.x, point.y, point.z + eps])) - d]).normalize();
 }
 
 
@@ -745,8 +745,8 @@ void sample(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t ac
 
                 auto corners = edgePairs[curEntry];
                 auto edge = Line!(float,3)(cellMin + cornerPoints[corners.x] * a, cellMin + cornerPoints[corners.y] * a);
-                auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
-                auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f); //TODO division by 1024 is improper for very high sizes
+                auto intersection = sampleSurfaceIntersection!(float, DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);
+                auto normal = calculateNormal!(float, DenFn3)(intersection, a/1024.0F, f); //TODO division by 1024 is improper for very high sizes
 
                
 
@@ -1218,8 +1218,8 @@ void extract(alias DenFn3)(ref DenFn3 f, Vector3!float offset, float a, size_t s
                     auto v2 = cornerPoints[pair.y];
 
                     auto edge = Line!(float,3)(cellMin + v1 * a, cellMin + v2 * a);
-                    auto intersection = sampleSurfaceIntersection!(DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);//duplication here(same edge can be sampled 1 to 4 times)
-                    auto normal = calculateNormal!(DenFn3)(intersection, a/1024.0F, f);
+                    auto intersection = sampleSurfaceIntersection!(float, DenFn3)(edge, cast(uint)accuracy.log2() + 1, f);//duplication here(same edge can be sampled 1 to 4 times)
+                    auto normal = calculateNormal!(float, DenFn3)(intersection, a/1024.0F, f);
 
                     //if(x == 45 && y == 54 && z == 69)addCubeBounds(renderLines, Cube!float(intersection, a/15.0F), Vector3!float([1,0,0]));//debug intersection
                     //if(x == 45 && y == 54 && z == 69)addLine3Color(renderLines, Line!(float,3)(intersection, intersection + normal * a / 3.0F), Vector3!float([0,0,1]));
