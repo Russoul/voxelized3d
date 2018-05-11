@@ -500,7 +500,7 @@ void runVoxelized(){
 
 
 
-    alias FP = double;
+    alias FP = float;
 
 
     auto offset = vec3!FP(-2.0, -2.0, -2.0);
@@ -591,16 +591,17 @@ void runVoxelized(){
 
 
     watch.start();
-    auto tree = sample!(FP, typeof(q), false)(q, offset, a, size, acc, 1e-4);
+    auto tree = sample!(FP, typeof(q), true)(q, offset, a, size, acc, 1e-5);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     watch.reset();
     printf("Tree generation and collapsing homo leaves took %d\n", ms);
 
     auto fhet = (Node!FP* node, Cube!FP bounds){
+        auto boundsf = Cube!float( bounds.center.mapf( x => cast(float) x), cast(float) bounds.extent );
         if(nodeType(node) == NODE_TYPE_HETEROGENEOUS){
-            addCubeBounds(rendererLines, bounds, red);
-            addCubeBounds(rendererLines, Cube!FP( asHetero!FP(node).qef.minimizer + asHetero!FP(node).qef.massPoint, bounds.extent / 32 ), yellow);
+            addCubeBounds(rendererLines, boundsf, red);
+            addCubeBounds(rendererLines, Cube!float( asHetero!FP(node).qef.minimizer.mapf(x => cast(float)x ) + asHetero!FP(node).qef.massPoint.mapf(x => cast(float) x), cast(float)bounds.extent / 32 ), yellow);
         
             foreach(i;0..8){
                 auto sign = asHetero!FP(node).getSign(cast(ubyte)i);
@@ -616,11 +617,11 @@ void runVoxelized(){
                     color = white;
                 }
 
-                addCubeBounds(rendererLines, Cube!float(point, bounds.extent / 32), color);
+                addCubeBounds(rendererLines, Cube!float(point.mapf(x => cast(float)x), boundsf.extent / 32), color);
             }
         
         }else{
-            addCubeBounds(rendererLines, bounds, green);
+            addCubeBounds(rendererLines, boundsf, green);
         }
     };
     foreachLeaf!(FP, fhet)(tree, bounds);
@@ -735,7 +736,7 @@ void runVoxelized(){
 
 		//debug bounds
 		if(glfwGetKey(win, GLFW_KEY_Z) == GLFW_PRESS){
-		    auto bmin = bounds.center - vec3!float(bounds.extent,bounds.extent,bounds.extent);
+		    auto bmin = bounds.center.mapf(x => cast(float) x) - vec3!float(cast(float)bounds.extent,cast(float)bounds.extent,cast(float)bounds.extent);
             auto dp = camera.pos - bmin;
             auto x = cast(size_t)(dp.x / a) % size;
             auto y = cast(size_t)(dp.y / a) % size;

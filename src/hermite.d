@@ -18,7 +18,7 @@ import traits;
 import graphics;
 import render;
 
-alias FP = double;
+alias FP = float;
 
 //for each cell configuration(of 256 possible) tells if there are edges {0,3,8} in that cell, {-2} is used to stop reading the array(of 3 elements) futher
 int[3][256] specialTable1 = [
@@ -319,6 +319,19 @@ Vector3!FP[8] cornerPoints = [
                                     vec3!FP(0.0,1.0,1.0)
 ];
 
+Vector3!float[8] cornerPointsf = [
+                                    vec3!float(0.0,0.0,0.0),
+                                    vec3!float(1.0,0.0,0.0), //clockwise starting from zero y min
+                                    vec3!float(1.0,0.0,1.0),
+                                    vec3!float(0.0,0.0,1.0),
+
+
+                                    vec3!float(0.0,1.0,0.0),
+                                    vec3!float(1.0,1.0,0.0), //y max
+                                    vec3!float(1.0,1.0,1.0),
+                                    vec3!float(0.0,1.0,1.0)
+];
+
 Vector3!FP[8] cornerPointsOrigin = [
                                     vec3!FP(-1.0,-1.0,-1.0),
                                     vec3!FP(1.0,-1.0,-1.0), //clockwise starting rom zero y min
@@ -409,7 +422,7 @@ struct QEF(T){
 
     Vector3!T massPoint;
 
-    ubyte n; //mass point dimension
+    //ubyte n; //mass point dimension
     Vector3!T minimizer;//relative to mass point
 }
 

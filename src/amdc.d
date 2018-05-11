@@ -45,7 +45,7 @@ Array!uint whichEdgesAreSignedAll(uint config){//TODO make special table for thi
 }
 
 
-void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out QEF!T qef){
+void constructQEF1(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out QEF!T qef){
     auto n = planes.length;
     auto Ab = Array!T();
     Ab.reserve(n * 4);
@@ -67,45 +67,40 @@ void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out Q
     }
 
     //TODO test ATA * x = ATb
-    auto A1 = Array!T();
-    A1.reserve(n * 3);
-    A1.length = n * 3;
+    // auto A1 = Array!T();
+    // A1.reserve(n * 3);
+    // A1.length = n * 3;
 
-    for(size_t i = 0; i < n; ++i){
-        A1[3*i+0] = planes[i].normal.x;
-        A1[3*i+1] = planes[i].normal.y;
-        A1[3*i+2] = planes[i].normal.z;
-    }
+    // for(size_t i = 0; i < n; ++i){
+    //     A1[3*i+0] = planes[i].normal.x;
+    //     A1[3*i+1] = planes[i].normal.y;
+    //     A1[3*i+2] = planes[i].normal.z;
+    // }
 
-    auto AT = Array!T();
-    AT.reserve(3 * n);
-    AT.length = 3 * n;
+    // auto AT = Array!T();
+    // AT.reserve(3 * n);
+    // AT.length = 3 * n;
 
-    transpose(&A1[0], n, 3, &AT[0]);
+    // transpose(&A1[0], n, 3, &AT[0]);
 
-    Matrix3!T ATA;
+    // Matrix3!T ATA;
 
-    mult(&AT[0], &A1[0], 3,n,3, &ATA[0,0]);
+    // mult(&AT[0], &A1[0], 3,n,3, &ATA[0,0]);
 
-    auto b1 = Array!T();
-    b1.reserve(n);
-    b1.length = n;
+    // auto b1 = Array!T();
+    // b1.reserve(n);
+    // b1.length = n;
 
-    foreach(i;0..n){
-        b1[i] = planes[i].normal.dot(planes[i].point - centroid);
-    }
-
-
-    Vector3!T ATB;
-
-    mult(&AT[0], &b1[0], 3,3,1, &ATB[0]);
+    // foreach(i;0..n){
+    //     b1[i] = planes[i].normal.dot(planes[i].point - centroid);
+    // }
 
 
+    // Vector3!T ATB;
+
+    // mult(&AT[0], &b1[0], 3,3,1, &ATB[0]);
 
 
-
-
-    
 
     T[4] tau;
 
@@ -146,9 +141,7 @@ void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out Q
     qef.b1 = b[0];
     qef.b2 = b[1];
     qef.b3 = b[2];
-
     qef.r = rs;
-
     qef.massPoint = centroid;
 
 
@@ -161,9 +154,9 @@ void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out Q
 
     //TODO use method for sym matrices
     static if( is(T == float) )
-        LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, ATA.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+        LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
     else static if( is(T == double) )
-        LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, ATA.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+        LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
     else
         panic!void("not implemented");
 
@@ -183,19 +176,127 @@ void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out Q
 
     auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
 
-    auto minimizer = mult(pinv, ATB);
+    auto minimizer = mult(pinv, b);
 
     qef.minimizer = minimizer;
 
 
-    qef.n = cast(ubyte)dim;
-
-
+    //qef.n = cast(ubyte)dim;
 
 }
 
 
-bool mergeQEFs(T)(QEF!T** qef, size_t count, out QEF!T collapsed, T thres){
+//this QEF representation uses QR decomposition and primary - floats
+void constructQEF(T)(const ref Array!(Plane!T) planes, Vector3!T centroid, out QEF!T qef){
+
+    import lapacke;
+
+    auto n = planes.length;
+    auto Ab = Array!T();
+    Ab.reserve(n * 4);
+    Ab.length = n * 4;
+
+
+    for(size_t i = 0; i < n; ++i){
+        Ab[4*i+0]   = planes[i].normal.x;
+        Ab[4*i+1] = planes[i].normal.y;
+        Ab[4*i+2] = planes[i].normal.z;
+
+        Ab[4*i+3] = planes[i].normal.dot(planes[i].point - centroid);
+    }
+
+    T[4] tau;
+
+    static if( is(T == float) )
+        LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
+    else static if( is(T == double) )
+        LAPACKE_dgeqrf(LAPACK_ROW_MAJOR, cast(int)n, 4, &Ab[0], 4, tau.ptr);
+    else
+        panic!void("not implemented");
+
+
+    T rs;
+    if(n >= 4){
+        rs = Ab[15] * Ab[15];
+    }else{
+        rs = 0;
+    }
+
+
+    qef.a11 = Ab[0];
+    qef.a12 = Ab[1];
+    qef.a13 = Ab[2];
+    qef.a22 = Ab[5];
+    qef.a23 = Ab[6];
+    qef.a33 = Ab[10];
+    qef.b1 = Ab[3];
+    qef.b2 = Ab[7];
+    qef.b3 = Ab[11];
+    qef.r = rs;
+    qef.massPoint = centroid;
+
+
+}
+
+void solveQEF(T)(ref QEF!T qef){
+
+
+    Matrix3!T A = zero!(T,3,3);
+
+    A[0,0] = qef.a11;
+    A[0,1] = qef.a12;
+    A[0,2] = qef.a13;
+    A[1,1] = qef.a22;
+    A[1,2] = qef.a23;
+    A[2,2] = qef.a33;
+
+    Vector3!T b;
+    b[0] = qef.b1;
+    b[1] = qef.b2;
+    b[2] = qef.b3;
+
+
+
+    import lapacke;
+
+   
+    auto U = zero!(T,3,3);
+    auto VT = U;
+
+    auto S = zero!(T,3,1);
+
+    T[2] cache;
+
+    //TODO use method for sym matrices
+    static if( is(T == float) )
+        LAPACKE_sgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+    else static if( is(T == double) )
+        LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, A.array.ptr, 3, S.array.ptr, U.array.ptr, 3, VT.array.ptr, 3, cache.ptr);
+    else
+        panic!void("not implemented");
+
+
+    foreach(i;0..3){
+        if(S[i].abs() < 0.1F){
+            S[i] = 0.0F;
+        }else{
+            S[i] = 1.0F / S[i];
+        }
+    }
+
+    auto Sm = diag3(S[0], S[1], S[2]);
+
+    auto pinv = mult(mult(VT.transpose(), Sm), U.transpose());
+
+    auto minimizer = mult(pinv, b);
+
+    qef.minimizer = minimizer;
+
+}
+
+
+
+bool mergeQEFs1(T)(QEF!T** qef, size_t count, out QEF!T collapsed, T thres){
 
     auto Ab = Array!T();
     Ab.reserve(16 * count);
@@ -329,6 +430,82 @@ bool mergeQEFs(T)(QEF!T** qef, size_t count, out QEF!T collapsed, T thres){
 
     collapsed.minimizer = minimizer;
 
+
+    return true;
+
+}
+
+bool mergeQEFs(T)(QEF!T** qef, size_t count, out QEF!T collapsed, T thres){
+
+    auto Ab = Array!T();
+    Ab.reserve(16 * count);
+    Ab.length = 16 * count;
+
+    import lapacke;
+
+    foreach(i;0..count){
+       Ab[16*i + 0] = qef[i].a11;
+       Ab[16*i + 1] = qef[i].a12;
+       Ab[16*i + 2] = qef[i].a13;
+       Ab[16*i + 3] = qef[i].b1;
+       Ab[16*i + 4] = 0;
+       Ab[16*i + 5] = qef[i].a22;
+       Ab[16*i + 6] = qef[i].a23;
+       Ab[16*i + 7] = qef[i].b2;
+       Ab[16*i + 8] = 0;
+       Ab[16*i + 9] = 0;
+       Ab[16*i + 10] = qef[i].a33;
+       Ab[16*i + 11] = qef[i].b3;
+       Ab[16*i + 12] = 0;
+       Ab[16*i + 13] = 0;
+       Ab[16*i + 14] = 0;
+       Ab[16*i + 15] = qef[i].r;
+    }
+
+    
+
+    T[4] tau;
+
+    static if( is(T == float) )
+        LAPACKE_sgeqrf(LAPACK_ROW_MAJOR, 4 * cast(int)count, 4, &Ab[0], 4, tau.ptr);
+    else static if( is(T == double) )
+        LAPACKE_dgeqrf(LAPACK_ROW_MAJOR, 4 * cast(int)count, 4, &Ab[0], 4, tau.ptr);
+    else
+        panic!void("not implemented");
+
+
+    collapsed.r = Ab[15] * Ab[15];
+
+
+    if(collapsed.r > thres){
+        return false;
+    }
+
+
+    collapsed.a11 = Ab[0];
+    collapsed.a12 = Ab[1];
+    collapsed.a13 = Ab[2];
+    collapsed.a22 = Ab[5];
+    collapsed.a23 = Ab[6];
+    collapsed.a33 = Ab[10];
+
+    collapsed.b1 = Ab[3];
+    collapsed.b2 = Ab[7];
+    collapsed.b3 = Ab[11];
+    
+    Vector3!T centroid = qef[0].massPoint;
+    size_t ccount = 1;
+    
+    
+
+    foreach(j;1..count){
+        centroid = centroid + qef[j].massPoint;
+        ccount += 1;
+    }
+
+    centroid = centroid / ccount;
+
+    collapsed.massPoint = centroid;
 
     return true;
 
@@ -504,6 +681,14 @@ Node!(T)* sample(T, alias DenFn3, bool SIMPLIFY)(ref DenFn3 f, Vector3!T offset,
             (*interior).children = nodes;
             (*interior).depth = cast(ubyte) curDepth;
             (*interior).__node_type__ = NODE_TYPE_INTERIOR;
+
+            foreach(i;0..8){
+                auto child = nodes[i];
+                if(nodeType(child) == NODE_TYPE_HETEROGENEOUS){
+                    auto het = asHetero!T(child);
+                    solveQEF(het.qef);
+                }
+            }
 
             sparseGrid[indexCell(i,j,k, curSize)] = cast(Node!(T)*)interior;
         }
@@ -801,8 +986,14 @@ void edgeProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, Node!(T)*
                 sc[i] = 0;
             }
 
-            pos[i] = node.qef.minimizer + node.qef.massPoint;
-
+            static if( is(T == double) )
+                pos[i] = (node.qef.minimizer + node.qef.massPoint).mapf(x => cast(float)x);
+            else static if( is(T == float) ){
+                pos[i] = (node.qef.minimizer + node.qef.massPoint);
+            }
+            else{
+                panic!void("not implemented");
+            }
 
         }
 
@@ -810,7 +1001,14 @@ void edgeProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, Node!(T)*
 
         auto node = (* cast(HeterogeneousNode!T*) nodes[index]);
 
-        normal = node.hermiteData[configs[index]].normal;
+        static if( is(T == double) )
+            normal = node.hermiteData[configs[index]].normal.mapf(x => cast(float) x);
+        else static if( is(T == float) ){
+            normal = node.hermiteData[configs[index]].normal;
+        }
+        else{
+            panic!void("not implemented");
+        }
 
 
         //TODO fix incorrect (inverted) triangle indexing

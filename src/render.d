@@ -159,7 +159,7 @@ void addLine3Color(RenderVertFragDef dat, Line!(float, 3) line, Vector3!float co
 void addCubeBounds(RenderVertFragDef dat, Cube!float cube, Vector3!float color){
     auto ext = Vector3!float([cube.extent, cube.extent, cube.extent]);
     foreach(i; 0..8){
-        auto corner = cube.center - ext + cornerPoints[i] * cube.extent * 2.0;
+        auto corner = cube.center - ext + cornerPointsf[i] * cube.extent * 2.0;
 
         addFloat3(dat, corner);
         addFloat3(dat, color);

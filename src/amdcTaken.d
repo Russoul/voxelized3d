@@ -127,7 +127,7 @@ void constructQEF(const ref Array!(Plane!float) planes, Vector3!float centroid, 
 
     auto minimizer = mult(pinv, b);
 
-    qef.n = cast(ubyte)dim;
+    //qef.n = cast(ubyte)dim;
 
     qef.minimizer = centroid + minimizer;
 

@@ -144,6 +144,19 @@ struct Matrix(T, size_t N, size_t M){ //TODO support SIMD
 	}
 
 
+	pragma(inline,true)
+	Matrix!(R, N, M) mapf(R)(R function(T) f){ //f : T => R
+		R[N*M] res;
+
+		foreach(i;0..N){
+			foreach(j;0..M){
+				res[i*M + j] = f(this[i,j]);  
+			}
+		}
+
+		return Matrix!(R,N,M)(res);
+	}
+
     pragma(inline,true)
 	T0 fold(T0)(T0 accum, T0 function(T,T0) f){
 		for(size_t i = 0; i < N; ++i){
@@ -192,6 +205,8 @@ auto dot(T, size_t N)(Matrix!(T, N, 1) a, Matrix!(T, N, 1) b){
 
 	return res;
 }
+
+
 
 pragma(inline,true)
 auto cross(T)(Matrix!(T,3,1) a, Matrix!(T,3,1) b){
