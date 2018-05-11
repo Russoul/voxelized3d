@@ -12,3 +12,5 @@ bindings/cmake-build-debug/
 bindings/cmake-build-release/
 dub.selections.json
 voxelized3d-test-library
+libvoxelizedBindings.*
+.vscode
