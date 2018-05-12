@@ -32,7 +32,7 @@ ________________________________________________________________________
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sudo apt-get install cmake-gui`
 
-6)compile cmake project in `bindings` directory of this project. After that copy outputted `libvoxelizedBindings.so` to the root of the project
+6)compile cmake project in `bindings` directory of this project. After that copy outputted `libvoxelizedBindings.a` to the root of the project
 
 7)install LDC https://dlang.org/download.html, DUB tool should be in your path after installation
 
@@ -41,11 +41,65 @@ ________________________________________________________________________
 ________________________________________________________________________
 
 #### INSTALLATION (Windows + NVIDIA video card)
-Not yet tested
+Not yet tested(won't compile out of the box, needs some changes)
+
+Will add Windows as target platform later
 ________________________________________________________________________
 
 
 #### Screenshots
+
+adaptive dual contouring (non manifold yet, produces self-intersecting triangles yet)
+
+adaptive DC with octree simplification, cube in the middle is overly simplified (topology is a bit broken + non manifoldness uncovers itself in extra incorrect triangles below the cube):
+![1](imgs/overly_simplified_cube.png)
+
+problem with overly simplified cube can be easy solved by
+
+storing extra information in voxels: can it(voxel) be simplified or not
+
+or better: a distance at which simplification is prefered
+
+__________________
+
+same scene but with debug info
+
+green nodes of the octree are voxels that do not contain the surface
+those are called `homogeneous` nodes
+
+red nodes contain the surface and are called `heterogeneous`
+
+both types of nodes mentioned are `leaves` of the tree
+
+One more type is `interior` or `internal` node.
+
+Those are not rendered, they can contain all 3 types of nodes
+as their child nodes (exactly 8)
+
+![2](imgs/overly_simplified_cube_debug1.png)
+
+_________
+
+little yellow boxes represent points in space that form the geometry,
+only those are present in the output triangulated surface
+
+exactly one point is generated in non manifold DC per `heterogeneous` voxel
+
+![3](imgs/overly_simplified_cube_debug2.png)
+
+_____
+
+a bit more simplification showing
+
+in uniform variant of DC all nodes would be of the same minimal size
+
+that would require more processing power and memory but also the output would more topologically correct
+
+
+![4](imgs/octree_simplification1.png)
+
+
+________________
 
 ![UMDC + sphere + noise (radius displacement)](imgs/umdc_sphere_displacement.png)
 
@@ -61,5 +115,5 @@ ________________________________________________________________________
 
 ![another height map](imgs/heightmap2.png)
 
-sampled on GPU(CUDA), extracted on CPU
+sampled on GPU(CUDA), extracted on CPU(uniform DC)
 ![cuda1](imgs/cuda_gen1.png)
