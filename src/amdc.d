@@ -3,6 +3,7 @@ module amdc;
 import std.math;
 import std.stdio;
 import std.container.array;
+import std.container.slist;
 import std.typecons;
 import std.conv;
 import core.stdc.string;
@@ -512,7 +513,7 @@ bool mergeQEFs(T)(QEF!T** qef, size_t count, out QEF!T collapsed, T thres){
 }
 
 Node!(T)* sample(T, alias DenFn3, bool SIMPLIFY)(ref DenFn3 f, Vector3!T offset, T a, size_t cellCount, size_t accuracy,
-     T thres){
+     T thres, ref VoxelRenderData!T renderData){
 
     ubyte maxDepth = cast(ubyte) log2(cellCount);
     
@@ -654,7 +655,7 @@ Node!(T)* sample(T, alias DenFn3, bool SIMPLIFY)(ref DenFn3 f, Vector3!T offset,
 
 
     pragma(inline,true)
-    void simplify(size_t i, size_t j, size_t k, ref Array!(Node!(T)*) sparseGrid,
+    void simplify(size_t i, size_t j, size_t k, ref Array!(Node!(T)*) sparseGrid,//TODO this func is used not only for simplificatin, prob rename
      ref Array!(Node!(T)*) denseGrid, size_t curSize, size_t curDepth){//depth is inverted
 
         auto n0 = denseGrid[indexCell(2*i, 2*j, 2*k, 2*curSize)];
@@ -831,6 +832,19 @@ Node!(T)* sample(T, alias DenFn3, bool SIMPLIFY)(ref DenFn3 f, Vector3!T offset,
 
     Node!(T)* tree = grid[0]; //grid contains only one element here
 
+    auto indexNode = delegate(HeterogeneousNode!T* het, Cube!T bounds){
+        renderData.ptr.insertBack(het);//cannot be run in parallel
+        auto ind = Array!uint();
+        memcpy(&het.indices, &ind, (Array!uint).sizeof);//this is needed instead of regular `=` because `indices` is not initialized correcty (with malloc)
+        het.index = cast(uint)renderData.ptr.length - 1;
+    };
+
+    auto ext = vec3!T(a * size / 2,a * size / 2,a * size / 2);
+
+    auto bounds = Cube!T(offset + ext, ext.x);
+
+    foreachHeterogeneousLeaf!(T, indexNode)(tree, bounds);
+
     return tree;
 
 }
@@ -869,7 +883,7 @@ auto edgeProcTable2 = [
                                     [3u,7u],
 ];
 
-void faceProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, uint dir){
+void faceProc(T)(ref VoxelRenderData!T renderer, Node!(T)* a, Node!(T)* b, uint dir){
 
 
     if(nodeType(a) == NODE_TYPE_HOMOGENEOUS || nodeType(b) == NODE_TYPE_HOMOGENEOUS){
@@ -936,7 +950,7 @@ void faceProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, uint dir)
 }
 
 static int CALLS = 0;
-void edgeProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, Node!(T)* c, Node!(T)* d, size_t ai, size_t bi, size_t ci, size_t di){
+void edgeProc(T)(ref VoxelRenderData!T renderer, Node!(T)* a, Node!(T)* b, Node!(T)* c, Node!(T)* d, size_t ai, size_t bi, size_t ci, size_t di){
     auto types = [nodeType(a), nodeType(b), nodeType(c), nodeType(d)];
     auto nodes = [a,b,c,d];
     auto configs = [ai,bi,ci,di];
@@ -1010,33 +1024,41 @@ void edgeProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, Node!(T)*
             panic!void("not implemented");
         }
 
+        auto hnodes = [asHetero!T(nodes[0]),asHetero!T(nodes[1]),asHetero!T(nodes[2]),asHetero!T(nodes[3])];
+
 
         //TODO fix incorrect (inverted) triangle indexing
         if(!flip2){
             if(nodes[0] == nodes[1]){//same nodes => triangle
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
-            //}else if(nodes[1] == nodes[3]){
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]], [pos[0], pos[2], pos[3]], color, normal);
+            //}else if(nodes[1] == nodes[3]){ //no possible
             //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
             }else if(nodes[3] == nodes[2]){
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[3] ), color, normal);
-            //}else if(nodes[2] == nodes[0]){
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[3] ), color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[1], hnodes[3]], [pos[0], pos[1], pos[3]], color, normal);
+            //}else if(nodes[2] == nodes[0]){ //not possible
             //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[2], pos[3] ), color, normal);
             }else{
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
+                renderer.addQuadrilateral([hnodes[0], hnodes[1], hnodes[2], hnodes[3]], [pos[0], pos[1], pos[2], pos[3]], color, normal);
             }
         }else{
             if(nodes[0] == nodes[1]){//same nodes => triangle
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]], [pos[0], pos[3], pos[2]], color, normal);
             //}else if(nodes[1] == nodes[3]){
             //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
             }else if(nodes[3] == nodes[2]){
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[1] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[1] ), color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[1]], [pos[0], pos[3], pos[1]], color, normal);
             //}else if(nodes[2] == nodes[0]){
             //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[3], pos[2] ), color, normal);
             }else{
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
-                addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
+                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
+                renderer.addQuadrilateral([hnodes[0], hnodes[3], hnodes[2], hnodes[1]], [pos[0], pos[3], pos[2], pos[1]], color, normal);
             }
         }
 
@@ -1066,7 +1088,7 @@ void edgeProc(T)(RenderVertFragDef renderer, Node!(T)* a, Node!(T)* b, Node!(T)*
     }
 }
 
-void cellProc(T)(RenderVertFragDef renderer, Node!(T)* node){ //ok
+void cellProc(T)(ref VoxelRenderData!T renderer, Node!(T)* node){ //ok
     switch(nodeType(node)){
         case NODE_TYPE_INTERIOR:
             auto interior = cast( InteriorNode!(T)* ) node;
@@ -1096,8 +1118,9 @@ void cellProc(T)(RenderVertFragDef renderer, Node!(T)* node){ //ok
     }
 }
 
-void extract(T)(RenderVertFragDef renderer, ref AdaptiveVoxelStorage!T storage){
-    cellProc!T(renderer, storage.root);
+void extract(T)(ref AdaptiveVoxelStorage!T storage, ref VoxelRenderData!T data){
+    data.preallocateBuffersBasedOnNodeCount();
+    cellProc!T(data, storage.root);
 }
 
 void foreachHeterogeneousLeaf(T, alias f)(Node!(T)* node, Cube!T bounds){
@@ -1111,7 +1134,7 @@ void foreachHeterogeneousLeaf(T, alias f)(Node!(T)* node, Cube!T bounds){
                 auto tr = cornerPointsOrigin[i] * bounds.extent / 2;
                 auto newBounds = Cube!(T)(bounds.center + tr, bounds.extent/2);
 
-                foreachHeterogeneousLeaf!(f)(c, newBounds);
+                foreachHeterogeneousLeaf!(T, f)(c, newBounds);
             }
             break;
 

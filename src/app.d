@@ -173,6 +173,12 @@ void main() @system
     println("Running Voxelized3D...");
     //specialTable();
 
+    // import std.container.slist;
+    // auto list = SList!uint();
+    // writeln(list);
+    // list.insertFront(1);
+    // writeln(list);
+
 	runVoxelized();
 }
 
@@ -591,7 +597,8 @@ void runVoxelized(){
 
 
     watch.start();
-    auto tree = sample!(FP, typeof(q), true)(q, offset, a, size, acc, 1e-5);
+    VoxelRenderData!FP voxelRenderData;
+    auto tree = sample!(FP, typeof(q), false)(q, offset, a, size, acc, 1e-5, voxelRenderData);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     watch.reset();
@@ -629,7 +636,8 @@ void runVoxelized(){
     
     watch.start();
     auto astorage = AdaptiveVoxelStorage!FP(size, tree);
-    extract!FP(rendererTrianglesLight, astorage);
+    extract!FP(astorage, voxelRenderData);
+    auto voxelRendererColorNormal = voxelRenderData.makeColorNormalRenderer();
     watch.stop();
     watch.peek().split!"msecs"(ms);
     printf("Extraction took %d ms\n", ms);
@@ -701,15 +709,17 @@ void runVoxelized(){
 	auto renderInfoLines = RenderInfo(rendererLines, providerLines);
 	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, provider);
 	auto renderInfoTrianglesLight = RenderInfo(rendererTrianglesLight, provider);
+    auto renderInfoVoxels = RenderInfo(voxelRendererColorNormal, provider);
 
 	auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines);
 	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor);
 	auto idTriLight = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTrianglesLight);
+    auto idVoxels = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoVoxels);
 
 	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.construct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.construct();
     voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.construct();
-
+    voxelRenderer.lifetimeManualRenderers[idVoxels.getValue].renderer.construct();
 
 
 
@@ -761,6 +771,7 @@ void runVoxelized(){
 	voxelRenderer.lifetimeManualRenderers[idLines.getValue].renderer.deconstruct();
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.deconstruct();
     voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.deconstruct();
+    voxelRenderer.lifetimeManualRenderers[idVoxels.getValue].renderer.deconstruct();
 
 	glfwTerminate();
 

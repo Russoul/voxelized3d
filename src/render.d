@@ -25,7 +25,7 @@ class RenderVertFrag{
 class RenderVertFragDef : RenderVertFrag{
     Array!float vertexPool;
     Array!uint indexPool; //uint is 32bit
-    uint vertexCount = 0;
+    uint vertexCount = 0; //TODO do we need this ? it can be computed as vertexPool.size / VERTEX_SIZE
     size_t VBO;
     size_t VAO;
     size_t EBO;

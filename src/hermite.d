@@ -4,6 +4,7 @@ module hermite;
 import std.math;
 import std.stdio;
 import std.container.array;
+import std.container.slist;
 import std.typecons;
 import std.conv;
 import core.stdc.string;
@@ -464,7 +465,8 @@ struct HeterogeneousNode(T){
 
     QEF!T qef;
     HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
-    //uint index;//index into vertexBuffer of all minimizers (see how it is done in secret sause, prob remove it from here)
+    uint index;//index of the minimizer (one for each minimizer)
+    Array!uint indices;//indexing into vertexBuffer
 
     ubyte getSign(ubyte p){
         return (cornerSigns >> p) & 1;
@@ -483,6 +485,142 @@ struct AdaptiveVoxelStorage(T){
     }
 }
 
+struct VoxelRenderData(T){ //this structure is used for storing topology/geometry in an efficient way
+
+    alias PolygonIndex = Tuple!(uint, "i", bool, "isQuad");
+
+    Array!float vertexBuffer;
+    Array!uint indexBufferTriangles;
+    Array!uint indexBufferQuads;
+    Array!(HeterogeneousNode!T*) ptr; //TODO preallocate arrays based on estimate vertex/triangle count ?
+    Array!(SList!PolygonIndex) polygons;
+
+
+    //we use two separate index buffers for triangles and quads
+    //quads allow us to safe extra memory by sending only 4 vertices to GPU vs 6 when using triangles to render a quad
+
+    //all arrays are indexed the same way, all have equal size
+
+    auto VERTEX_SIZE = VERTEX_SIZE_POS_COLOR_NORMAL;
+
+    void preallocateBuffersBasedOnNodeCount(){
+        //vertexBuffer.reserve(ptr.length * VERTEX_SIZE);
+        //vertexBuffer.length = ptr.length * VERTEX_SIZE;
+
+        polygons.reserve(ptr.length);
+        polygons.length = ptr.length;
+
+        foreach(i;0..ptr.length){
+            polygons[i] = SList!(PolygonIndex)();
+        }
+    }
+
+    private void addFloat3(Vector3!float v){
+        vertexBuffer.insertBack(v.x);
+        vertexBuffer.insertBack(v.y);
+        vertexBuffer.insertBack(v.z);
+    }
+
+    private void setFloat3(uint i, Vector3!float v){
+        vertexBuffer[i] = v.x;
+        vertexBuffer[i+1] = v.y;
+        vertexBuffer[i+2] = v.z;
+    }
+
+    private uint getVertexCount(){
+        return cast(uint)vertexBuffer.length / VERTEX_SIZE;
+    }
+
+    private void addTriangleColorNormal(HeterogeneousNode!T*[3] nodes, Vector3!float[3] tri, Vector3!float color, Vector3!float normal){
+
+        foreach(i;0..3){
+            addFloat3(tri[i]);
+            addFloat3(color);
+            addFloat3(normal);
+
+            nodes[i].indices.insertBack(getVertexCount() - 1);
+
+            indexBufferTriangles.insertBack(getVertexCount() - 1);
+        }
+
+
+        auto geoIndex = cast(uint)indexBufferTriangles.length / 3 - 1;
+
+        PolygonIndex index;
+        index.i = geoIndex;
+        index.isQuad = false;
+
+        foreach(i;0..3){
+            polygons[nodes[i].index].insertFront(index);
+        }
+    }
+
+    private void addQuadrilateralColorNormal(HeterogeneousNode!T*[4] nodes, Vector3!float[4] pos, Vector3!float color, Vector3!float normal){
+
+        auto indexPre = getVertexCount();
+
+        foreach(i;0..4){
+            addFloat3(pos[i]);
+            addFloat3(color);
+            addFloat3(normal);
+
+            nodes[i].indices.insertBack(getVertexCount() - 1);
+        }
+
+
+
+        indexBufferQuads.insertBack(indexPre);
+        indexBufferQuads.insertBack(indexPre + 1);
+        indexBufferQuads.insertBack(indexPre + 2);
+
+        indexBufferQuads.insertBack(indexPre);
+        indexBufferQuads.insertBack(indexPre + 2);
+        indexBufferQuads.insertBack(indexPre + 3);
+
+        auto geoIndex = cast(uint)indexBufferQuads.length / 6 - 1;
+
+        PolygonIndex index;
+        index.i = geoIndex;
+        index.isQuad = true;
+
+
+        foreach(i;0..4){
+            polygons[nodes[i].index].insertFront(index);
+        }
+
+    }
+
+    void addTriangle(T)(HeterogeneousNode!T*[3] nodes, Vector3!float[3] pos,
+                       Vector3!float color, Vector3!float normal){     
+        addTriangleColorNormal(nodes, pos, color, normal);
+    }
+
+    void addQuadrilateral(HeterogeneousNode!T*[4] nodes, Vector3!float[4] pos,
+                       Vector3!float color, Vector3!float normal){
+        addQuadrilateralColorNormal(nodes, pos, color, normal);
+    }
+
+    RenderVertFragDef makeColorNormalRenderer(){
+        auto renderer = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
+
+        //writeln("makeColorNormalRenderer1");
+        //stdout.flush();
+
+        renderer.vertexPool = vertexBuffer;
+        renderer.indexPool.reserve(indexBufferTriangles.length + indexBufferQuads.length);
+        renderer.indexPool.length = indexBufferTriangles.length + indexBufferQuads.length;
+
+        if(indexBufferTriangles.length > 0)//is can be zero when the grid is not simplified
+            memcpy(&renderer.indexPool[0], &indexBufferTriangles[0], uint.sizeof * indexBufferTriangles.length);
+       
+        if(indexBufferQuads.length > 0)
+            memcpy(&renderer.indexPool[0] + indexBufferTriangles.length, &indexBufferQuads[0], uint.sizeof * indexBufferQuads.length);
+
+        renderer.vertexCount = cast(uint)vertexBuffer.length / VERTEX_SIZE;
+
+        return renderer;
+    }
+}
 
 ubyte nodeType(T)(Node!(T)* node){
     return (*node).__node_type__;
