@@ -466,7 +466,7 @@ struct HeterogeneousNode(T){
     QEF!T qef;
     HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
     uint index;//index of the minimizer (one for each minimizer)
-    Array!uint indices;//indexing into vertexBuffer
+    Array!uint indices;//indexing into vertexBuffer TODO switch to SList ?
 
     ubyte getSign(ubyte p){
         return (cornerSigns >> p) & 1;
@@ -598,6 +598,75 @@ struct VoxelRenderData(T){ //this structure is used for storing topology/geometr
     void addQuadrilateral(HeterogeneousNode!T*[4] nodes, Vector3!float[4] pos,
                        Vector3!float color, Vector3!float normal){
         addQuadrilateralColorNormal(nodes, pos, color, normal);
+    }
+
+    private void removeFrontPolygon(uint POLYGON_SIZE)(uint topologyIndex, ref Array!uint indexBuffer){
+        
+        uint offset = topologyIndex * POLYGON_SIZE;
+
+        foreach(i;0..POLYGON_SIZE){ //remove vertices that are pointed by indices of the polygon
+            uint index = offset + i; //indices point to continious 3 to 4 vertices
+            //memcpy(&vertexBuffer[0] + index, &vertexBuffer[0] + index + VERTEX_SIZE * POLYGON_SIZE, float.sizeof *  VERTEX_SIZE * POLYGON_SIZE);
+            //^^ better not move the whole thing as ALL indices will be invalidated but instead move the last one to the current deleted one
+            //one problem arises: some polygons are of size 3 and some of size 4
+        }
+
+        memcpy(&indexBuffer[0] + offset, &indexBuffer[0] + offset + POLYGON_SIZE, indexBuffer.length - offset);
+
+        polygons[nodeIndex].popFront();
+
+        foreach(ref list; polygons){
+            foreach(ref item; list){
+                if(item.i >= offset){//actually offset + POLYGON_SIZE but it is the same as no polygons remain that refer to that range
+                    item.i -= POLYGON_SIZE;
+                }
+            }
+        }
+
+    }
+
+
+    private void removeFrontPolygon(uint nodeIndex){
+        uint ps = polygons[nodeIndex].front.i; //dont forget to pop it
+        bool isQuad = polygons[nodeIndex].front.isQuad;
+
+       if(isQuad){
+           removeFrontPolygon!(4)(ps, indexBufferQuads);
+       }else{
+           removeFrontPolygon!(3)(ps, indexBufferTriangles);
+       }
+
+       polygons[nodeIndex].popFront();
+    }
+
+    private void removeVertex1(uint vertexIndex){
+        if(polygons[vertexIndex].empty) return;
+
+        removeFrontPolygon(vertexIndex);
+
+        removeVertex1(vertexIndex);
+    }
+
+    private void removeVertex(uint vertexIndex){
+        removeVertex1(vertexIndex);
+
+        memcpy();
+    }
+
+    private void removeNodeData(HeterogeneousNode!T* node){
+
+        SList!uint* ps = &polygons[node.index];
+
+        foreach(i;node.indices){//index into vertex buffer
+
+        }
+
+        foreach(p; *ps){
+            uint[POLYGON_SIZE] polygonIndices;
+            foreach(i;0..POLYGON_SIZE){
+                polygonIndices[i] = indexBuffer[p * POLYGON_SIZE + i];
+            }
+        }
     }
 
     RenderVertFragDef makeColorNormalRenderer(){
