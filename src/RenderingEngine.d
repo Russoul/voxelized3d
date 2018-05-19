@@ -4,7 +4,7 @@ import std.variant;
 import std.stdio;
 import std.typecons;
 
-import graphics;
+import bindings;
 import matrix;
 import render;
 import util;

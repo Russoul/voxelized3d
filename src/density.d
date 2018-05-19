@@ -2,7 +2,7 @@ module density;
 
 import math;
 import matrix;
-import graphics;
+import bindings;
 import std.math;
 
 T octaveNoise(T)(void* noise, size_t octaves, float persistence, T x, T y, T z){

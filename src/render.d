@@ -5,7 +5,7 @@ import std.stdio;
 import std.container.array;
 
 import util;
-import graphics;
+import bindings;
 import matrix;
 import math;
 

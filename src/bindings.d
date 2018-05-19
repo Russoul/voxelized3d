@@ -1,4 +1,4 @@
-module graphics;
+module bindings;
 
 import util;
 import matrix;

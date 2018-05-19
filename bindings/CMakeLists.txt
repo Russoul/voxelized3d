@@ -41,10 +41,10 @@ include_directories(.)
 
 set(CONTOURING  contouring/eigen.cpp contouring/eigen.h contouring/GeoCommon.h contouring/HashMap.h contouring/PLYReader.h contouring/PLYWriter.h contouring/octree.cpp contouring/octree.h contouring/intersection.h contouring/qef.cpp)
 
-cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c ${CONTOURING})
+cuda_add_library(voxelizedBindings STATIC helper_math.h FastNoise.h FastNoise.cpp cuda_noise.cuh lib.cpp sampling.cu glad.c ${CONTOURING} stb_image.cpp)
 
 install(TARGETS voxelizedBindings DESTINATION /usr/local/lib)
 
-add_executable(DC contouring/dc.cpp)
+add_executable(DC contouring/dc.cpp stb_image.cpp)
 
 target_link_libraries(DC voxelizedBindings)
