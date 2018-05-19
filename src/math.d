@@ -17,6 +17,13 @@ struct Triangle(T, size_t N){
     Vector!(T, N) p3;
 }
 
+struct Rectangle3(T){
+    Vector3!T center;
+    Vector3!T right;
+    Vector3!T up;
+    Vector2!T extent;
+}
+
 struct Plane(T){
     Vector3!T point;
     Vector3!T normal;
@@ -50,7 +57,64 @@ struct OBB(T){
     Vector3!T extent; // {right,up,look}
 }
 
+bool checkLinePlaneIntersection(T)(ref Line!(T, 3) line, Plane!T plane, ref T ret){
+    auto t = (plane.point - line.start).dot(plane.normal) / (line.end - line.start).dot(plane.normal);
+    if(0 < t && t < 1.0){
+        ret = t;
+        return true;
+    }else{
+        return false;
+    }
+}
 
+bool checkLine3Rectangle3Intersection(T)(ref Line!(T,3) line, ref Rectangle3!(T) rec, ref T t){
+    if(checkLinePlaneIntersection!T(line, Plane!T(rec.center, rec.right.cross(rec.up)), t)){
+        auto ret = line.start + (line.end - line.start) * t;
+        auto min = rec.center - rec.right * rec.extent[0] - rec.up * rec.extent[1]; 
+        auto d1 = dot(rec.right * (rec.extent[0] * 2), ret - min);
+        if(0 < d1 && d1 < (2 * rec.extent[0]) * (2 * rec.extent[0]) ){
+            auto d2 = dot(rec.up * (rec.extent[1] * 2), ret - min);
+            return 0 < d2 && d2 < (2 * rec.extent[1]) * (2 * rec.extent[1]);
+        }else{
+            return false;
+        }
+    }else{
+        return false;
+    }
+}
+
+void genCubeRectangleFaces(T)(ref Cube!(T) cube, ref Rectangle3!(T)[6] faces){
+    auto ext = vec2!T(cube.extent, cube.extent);
+
+    auto right = vec3!T(1,0,0);
+    auto up    = vec3!T(0,1,0);
+    auto look  = vec3!T(0,0,1);
+
+    faces[0] = Rectangle3!(T)(cube.center - right * cube.extent, vec3!T(0,0,1), vec3!T(0,1,0), ext);
+    faces[1] = Rectangle3!(T)(cube.center + right * cube.extent, vec3!T(0,0,-1), vec3!T(0,1,0), ext);
+    faces[2] = Rectangle3!(T)(cube.center - up * cube.extent, vec3!T(1,0,0), vec3!T(0,0,1), ext);
+    faces[3] = Rectangle3!(T)(cube.center + up * cube.extent, vec3!T(1,0,0), vec3!T(0,0,-1), ext);
+    faces[4] = Rectangle3!(T)(cube.center - look * cube.extent, vec3!T(-1,0,0), vec3!T(0,1,0), ext);
+    faces[5] = Rectangle3!(T)(cube.center + look * cube.extent, vec3!T(1,0,0), vec3!T(0,1,0), ext);
+
+}
+
+bool checkLine3CubeIntersection(T)(ref Line!(T,3) line, ref Cube!(T) cube, ref T ret){
+
+    Rectangle3!T[6] faces;
+
+    genCubeRectangleFaces(cube, faces);
+
+    foreach(i;0..6){
+        auto inter = checkLine3Rectangle3Intersection(line, faces[i], ret);
+
+        if(inter){
+            return true;
+        }
+    }
+
+    return false;
+}
 
 Vector3!T cubeMin(T)(Cube!T cube){
     return cube.center - Vector3!T([cube.extent, cube.extent, cube.extent]);

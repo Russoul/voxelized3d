@@ -485,6 +485,15 @@ struct AdaptiveVoxelStorage(T){
     }
 }
 
+void genCubeChildrenBounds(T)(ref Cube!T bounds, ref Cube!T[8] ch){
+     foreach(i;0..8){
+        auto tr = cornerPointsOrigin[i] * bounds.extent / 2;
+        auto newBounds = Cube!(T)(bounds.center + tr, bounds.extent/2);
+
+        ch[i] = newBounds;
+    }
+}
+
 struct VoxelRenderData(T){ //this structure is used for storing topology/geometry in an efficient way
 
     //alias PolygonIndex = Tuple!(uint, "i", bool, "isQuad");

@@ -310,6 +310,11 @@ auto matS(alias val)() {
 }
 
 pragma(inline,true)
+Vector2!T vec2(T)(T x, T y){
+    return Vector2!T([x,y]);
+}
+
+pragma(inline,true)
 Vector3!T vec3(T)(T x, T y, T z){
     return Vector3!T([x,y,z]);
 }
