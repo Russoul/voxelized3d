@@ -361,7 +361,7 @@ STBIDEF stbi_uc *stbi_load_gif_from_memory(stbi_uc const *buffer, int len, int *
 
 
 #ifndef STBI_NO_STDIO
-STBIDEF stbi_uc *stbi_load            (char const *filename, int *x, int *y, int *channels_in_file, int desired_channels);
+extern "C" stbi_uc *stbi_load            (char const *filename, int *x, int *y, int *channels_in_file, int desired_channels);
 STBIDEF stbi_uc *stbi_load_from_file  (FILE *f, int *x, int *y, int *channels_in_file, int desired_channels);
 // for stbi_load_from_file, file pointer is left pointing immediately after image
 #endif
@@ -417,7 +417,7 @@ STBIDEF int      stbi_is_hdr_from_file(FILE *f);
 STBIDEF const char *stbi_failure_reason  (void);
 
 // free the loaded image -- this is just free()
-STBIDEF void     stbi_image_free      (void *retval_from_stbi_load);
+extern "C" void     stbi_image_free      (void *retval_from_stbi_load);
 
 // get image dimensions & components without fully decoding
 STBIDEF int      stbi_info_from_memory(stbi_uc const *buffer, int len, int *x, int *y, int *comp);
@@ -950,7 +950,7 @@ static void *stbi__malloc_mad4(int a, int b, int c, int d, int add)
 #define stbi__errpf(x,y)   ((float *)(size_t) (stbi__err(x,y)?NULL:NULL))
 #define stbi__errpuc(x,y)  ((unsigned char *)(size_t) (stbi__err(x,y)?NULL:NULL))
 
-STBIDEF void stbi_image_free(void *retval_from_stbi_load)
+extern "C" void stbi_image_free(void *retval_from_stbi_load)
 {
    STBI_FREE(retval_from_stbi_load);
 }
@@ -1157,7 +1157,7 @@ static FILE *stbi__fopen(char const *filename, char const *mode)
 }
 
 
-STBIDEF stbi_uc *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
+extern "C" stbi_uc *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
 {
    FILE *f = stbi__fopen(filename, "rb");
    unsigned char *result;

@@ -436,6 +436,18 @@ void runVoxelized(){
 
 
 
+    // ===================== load crosshair =======================
+
+    int imgWidth, imgHeight, imgCh;
+    ubyte* dotImg = stbi_load("assets/textures/gui/dot.png", &imgWidth, &imgHeight, &imgCh, 0);
+    uint dotTex;
+    glGenTextures(1, &dotTex);
+    glBindTexture(GL_TEXTURE_2D, dotTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgWidth, imgHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, cast(void*) dotImg);
+    stbi_image_free(dotImg);
+
+    // =====================================
+
 	shaders["lighting"].enable();
 	shaders["lighting"].setFloat3("pointLight.pos", vecS!([4.0F,4.0F,4.0F]));
 	shaders["lighting"].setFloat3("pointLight.color", Vector3!float([25.0, 25.0, 25.0])/10.0F);

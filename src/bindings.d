@@ -97,6 +97,9 @@ extern (C) void glValidateProgram(size_t program);
 extern (C) void glDeleteShader(size_t shader);
 extern (C) void glGenVertexArrays(size_t num, size_t* arrays);
 extern (C) void glGenBuffers(size_t num, size_t* buffers);
+extern (C) void glGenTextures(size_t num, uint* textures);
+extern (C) void glBindTexture(int target, uint texture);
+extern (C) void glTexImage2D(int target, int level, int internalFormat, uint width, uint height, int border, int format, int type, void* data);
 extern (C) void glDeleteVertexArrays(size_t num, const size_t* arrays);
 extern (C) void glDeleteBuffers(size_t num, const size_t* buffers);
 extern (C) void glBindVertexArray(size_t array);
@@ -245,6 +248,13 @@ extern (C){
 
 // =======================================================
 
+
+// ======================== STB IMAGE LIBRARY ========================
+
+extern(C) ubyte* stbi_load(const char* filename, int* x, int* y, int* channelCount, int desiredChannels);
+extern(C) void stbi_image_free(void* data);
+
+// ===================================================================
 
 enum GL_DEPTH_BUFFER_BIT = 0x00000100;
 enum GL_STENCIL_BUFFER_BIT = 0x00000400;
