@@ -637,7 +637,8 @@ void runVoxelized(){
     watch.start();
     auto astorage = AdaptiveVoxelStorage!FP(size, tree);
     extract!FP(astorage, voxelRenderData);
-    auto voxelRendererColorNormal = voxelRenderData.makeColorNormalRenderer();
+    auto voxelRendererColorNormal = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
+    voxelRenderData.updateColorNormalRenderer(voxelRendererColorNormal);
     watch.stop();
     watch.peek().split!"msecs"(ms);
     printf("Extraction took %d ms\n", ms);

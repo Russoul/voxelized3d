@@ -834,9 +834,24 @@ Node!(T)* sample(T, alias DenFn3, bool SIMPLIFY)(ref DenFn3 f, Vector3!T offset,
 
     auto indexNode = delegate(HeterogeneousNode!T* het, Cube!T bounds){
         renderData.ptr.insertBack(het);//cannot be run in parallel
-        auto ind = Array!uint();
-        memcpy(&het.indices, &ind, (Array!uint).sizeof);//this is needed instead of regular `=` because `indices` is not initialized correcty (with malloc)
+        //auto ind = Array!uint();
+        //memcpy(&het.indices, &ind, (Array!uint).sizeof);//this is needed instead of regular `=` because `indices` is not initialized correcty (with malloc)
         het.index = cast(uint)renderData.ptr.length - 1;
+
+        Vector3!float normal = zero3!float();
+        size_t normalCount;
+        foreach(i;0..12){
+            if(het.hermiteData[i]){
+                normal = normal + het.hermiteData[i].normal;
+                normalCount += 1;
+            }
+        }
+
+        normal = normal / normalCount;
+
+        renderData.addFloat3(het.qef.minimizer + het.qef.massPoint);
+        renderData.addFloat3(vec3!float(1.0F, 1.0F, 1.0F));
+        renderData.addFloat3(normal);
     };
 
     auto ext = vec3!T(a * size / 2,a * size / 2,a * size / 2);
@@ -1030,35 +1045,35 @@ void edgeProc(T)(ref VoxelRenderData!T renderer, Node!(T)* a, Node!(T)* b, Node!
         //TODO fix incorrect (inverted) triangle indexing
         if(!flip2){
             if(nodes[0] == nodes[1]){//same nodes => triangle
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
-                renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]], [pos[0], pos[2], pos[3]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]], [pos[0], pos[2], pos[3]], color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]]);
             //}else if(nodes[1] == nodes[3]){ //no possible
-            //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
             }else if(nodes[3] == nodes[2]){
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[3] ), color, normal);
-                renderer.addTriangle([hnodes[0], hnodes[1], hnodes[3]], [pos[0], pos[1], pos[3]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[1], hnodes[3]], [pos[0], pos[1], pos[3]], color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[1], hnodes[3]]);
             //}else if(nodes[2] == nodes[0]){ //not possible
-            //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[2], pos[3] ), color, normal);
             }else{
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[1], pos[2] ), color, normal);
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[3] ), color, normal);
-                renderer.addQuadrilateral([hnodes[0], hnodes[1], hnodes[2], hnodes[3]], [pos[0], pos[1], pos[2], pos[3]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[1], hnodes[2]], [pos[0], pos[1], pos[2]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]], [pos[0], pos[2], pos[3]], color, normal);
+
+                renderer.addTriangle([hnodes[0], hnodes[1], hnodes[2]]);
+                renderer.addTriangle([hnodes[0], hnodes[2], hnodes[3]]);
             }
         }else{
             if(nodes[0] == nodes[1]){//same nodes => triangle
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
-                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]], [pos[0], pos[3], pos[2]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]], [pos[0], pos[3], pos[2]], color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]]);
             //}else if(nodes[1] == nodes[3]){
-            //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
             }else if(nodes[3] == nodes[2]){
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[1] ), color, normal);
-                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[1]], [pos[0], pos[3], pos[1]], color, normal);
+                //renderer.addTriangle([hnodes[0], hnodes[3], hnodes[1]], [pos[0], pos[3], pos[1]], color, normal);
+                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[1]]);
             //}else if(nodes[2] == nodes[0]){
-            //    addTriangleColorNormal(renderer, Triangle!(float,3)( pos[1], pos[3], pos[2] ), color, normal);
             }else{
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[2], pos[1] ), color, normal);
-                //addTriangleColorNormal(renderer, Triangle!(float,3)( pos[0], pos[3], pos[2] ), color, normal);
-                renderer.addQuadrilateral([hnodes[0], hnodes[3], hnodes[2], hnodes[1]], [pos[0], pos[3], pos[2], pos[1]], color, normal);
+                // renderer.addTriangle([hnodes[0], hnodes[2], hnodes[1]], [pos[0], pos[2], pos[1]], color, normal);
+                // renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]], [pos[0], pos[3], pos[2]], color, normal);
+
+                renderer.addTriangle([hnodes[0], hnodes[2], hnodes[1]]);
+                renderer.addTriangle([hnodes[0], hnodes[3], hnodes[2]]);
             }
         }
 

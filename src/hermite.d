@@ -466,7 +466,7 @@ struct HeterogeneousNode(T){
     QEF!T qef;
     HermiteData!(T)*[12] hermiteData; //for each edge, set to null's automatically
     uint index;//index of the minimizer (one for each minimizer)
-    Array!uint indices;//indexing into vertexBuffer TODO switch to SList ?
+    //Array!uint indices;//indexing into vertexBuffer TODO switch to SList ?
 
     ubyte getSign(ubyte p){
         return (cornerSigns >> p) & 1;
@@ -487,13 +487,21 @@ struct AdaptiveVoxelStorage(T){
 
 struct VoxelRenderData(T){ //this structure is used for storing topology/geometry in an efficient way
 
-    alias PolygonIndex = Tuple!(uint, "i", bool, "isQuad");
+    //alias PolygonIndex = Tuple!(uint, "i", bool, "isQuad");
+
+    //2 possible choises here:
+    //1)store only N vertices in vertexBuffer where N is het node count, so only 1 per each node
+    //normals we get by interpolating all normals connected to this vertex (per face normals)
+
+    //2)dont use indexBuffer at all, verterBuffer would contain sum(triangle count for node[i]), i from 0 to N)
+    //normals are generated per vertex rather than per face
 
     Array!float vertexBuffer;
-    Array!uint indexBufferTriangles;
-    Array!uint indexBufferQuads;
-    Array!(HeterogeneousNode!T*) ptr; //TODO preallocate arrays based on estimate vertex/triangle count ?
-    Array!(SList!PolygonIndex) polygons;
+    Array!uint indexBuffer;
+    //Array!uint indexBufferQuads;
+    Array!(HeterogeneousNode!T*) ptr; //for each vertex //TODO preallocate arrays based on estimate vertex/triangle count ?
+    Array!(Array!(uint)) polygons; //for each vertex a list of polygons it pops in
+    //Array!(uint) fromRenderVertexToUnique; //vertex from triangle (indexed using vertexBuffer) -> unique per node vertex
 
 
     //we use two separate index buffers for triangles and quads
@@ -501,7 +509,7 @@ struct VoxelRenderData(T){ //this structure is used for storing topology/geometr
 
     //all arrays are indexed the same way, all have equal size
 
-    auto VERTEX_SIZE = VERTEX_SIZE_POS_COLOR_NORMAL;
+    const auto VERTEX_SIZE = VERTEX_SIZE_POS_COLOR_NORMAL;
 
     void preallocateBuffersBasedOnNodeCount(){
         //vertexBuffer.reserve(ptr.length * VERTEX_SIZE);
@@ -510,18 +518,21 @@ struct VoxelRenderData(T){ //this structure is used for storing topology/geometr
         polygons.reserve(ptr.length);
         polygons.length = ptr.length;
 
+        //vertexBuffer.reserve(ptr.length * VERTEX_SIZE);
+        //vertexBuffer.length = ptr.length * VERTEX_SIZE;
+
         foreach(i;0..ptr.length){
-            polygons[i] = SList!(PolygonIndex)();
+            polygons[i] = Array!(uint)();
         }
     }
 
-    private void addFloat3(Vector3!float v){
+    void addFloat3(Vector3!float v){
         vertexBuffer.insertBack(v.x);
         vertexBuffer.insertBack(v.y);
         vertexBuffer.insertBack(v.z);
     }
 
-    private void setFloat3(uint i, Vector3!float v){
+    void setFloat3(uint i, Vector3!float v){
         vertexBuffer[i] = v.x;
         vertexBuffer[i+1] = v.y;
         vertexBuffer[i+2] = v.z;
@@ -531,94 +542,85 @@ struct VoxelRenderData(T){ //this structure is used for storing topology/geometr
         return cast(uint)vertexBuffer.length / VERTEX_SIZE;
     }
 
-    private void addTriangleColorNormal(HeterogeneousNode!T*[3] nodes, Vector3!float[3] tri, Vector3!float color, Vector3!float normal){
+
+    void addTriangle(T)(HeterogeneousNode!T*[3] nodes){     
+        foreach(i;0..3){
+            indexBuffer.insertBack(nodes[i].index);
+
+        }
 
         foreach(i;0..3){
-            addFloat3(tri[i]);
-            addFloat3(color);
-            addFloat3(normal);
-
-            nodes[i].indices.insertBack(getVertexCount() - 1);
-
-            indexBufferTriangles.insertBack(getVertexCount() - 1);
+            polygons[nodes[i].index].insertBack(cast(uint)indexBuffer.length / 3 - 1);
         }
 
 
-        auto geoIndex = cast(uint)indexBufferTriangles.length / 3 - 1;
+    }
 
-        PolygonIndex index;
-        index.i = geoIndex;
-        index.isQuad = false;
+    private void changeLength(Type)(Type expr, int delta){
+        expr.length = expr.length - 1;
+    }
+
+
+    void removePolygon(uint vertexIndex, uint polygonIndex){
+
+        uint curPoly = polygons[vertexIndex][polygonIndex];
 
         foreach(i;0..3){
-            polygons[nodes[i].index].insertFront(index);
-        }
-    }
+            auto vertexIndexConnectedToThatPoly = indexBuffer[curPoly * 3 + i];
 
-    private void addQuadrilateralColorNormal(HeterogeneousNode!T*[4] nodes, Vector3!float[4] pos, Vector3!float color, Vector3!float normal){
-
-        auto indexPre = getVertexCount();
-
-        foreach(i;0..4){
-            addFloat3(pos[i]);
-            addFloat3(color);
-            addFloat3(normal);
-
-            nodes[i].indices.insertBack(getVertexCount() - 1);
+            foreach(j;0..polygons[vertexIndexConnectedToThatPoly].length){
+                if(polygons[vertexIndexConnectedToThatPoly][j] == curPoly){
+                    if(j + 1 == polygons[vertexIndexConnectedToThatPoly].length){
+                        changeLength(polygons[vertexIndexConnectedToThatPoly], -1);
+                    }else{
+                        polygons[vertexIndexConnectedToThatPoly][j] = polygons[vertexIndexConnectedToThatPoly][polygons[vertexIndexConnectedToThatPoly].length - 1];
+                        changeLength(polygons[vertexIndexConnectedToThatPoly], -1);
+                    }
+                }
+            }
         }
 
+        foreach(i;0..3){
+            indexBuffer[curPoly * 3 + i] = indexBuffer[indexBuffer.length - 3 + i];
+        }
+        changeLength(indexBuffer, -3);
 
+        //now curPoly points to a new polygon
 
-        indexBufferQuads.insertBack(indexPre);
-        indexBufferQuads.insertBack(indexPre + 1);
-        indexBufferQuads.insertBack(indexPre + 2);
+        foreach(i;0..3){
+            auto vertexIndexConnectedToThatNewPoly = indexBuffer[curPoly * 3 + i];
 
-        indexBufferQuads.insertBack(indexPre);
-        indexBufferQuads.insertBack(indexPre + 2);
-        indexBufferQuads.insertBack(indexPre + 3);
-
-        auto geoIndex = cast(uint)indexBufferQuads.length / 6 - 1;
-
-        PolygonIndex index;
-        index.i = geoIndex;
-        index.isQuad = true;
-
-
-        foreach(i;0..4){
-            polygons[nodes[i].index].insertFront(index);
+            foreach(j;0..polygons[vertexIndexConnectedToThatNewPoly].length){
+                if(polygons[vertexIndexConnectedToThatNewPoly][j] == indexBuffer.length / 3 - 1){
+                    polygons[vertexIndexConnectedToThatNewPoly][j] = curPoly; //renumber
+                }
+            }
         }
 
     }
 
-    void addTriangle(T)(HeterogeneousNode!T*[3] nodes, Vector3!float[3] pos,
-                       Vector3!float color, Vector3!float normal){     
-        addTriangleColorNormal(nodes, pos, color, normal);
-    }
-
-    void addQuadrilateral(HeterogeneousNode!T*[4] nodes, Vector3!float[4] pos,
-                       Vector3!float color, Vector3!float normal){
-        addQuadrilateralColorNormal(nodes, pos, color, normal);
-    }
-
-    private void removeFrontPolygon(uint POLYGON_SIZE)(uint topologyIndex, ref Array!uint indexBuffer){
-        
-        uint offset = topologyIndex * POLYGON_SIZE;
-
-        foreach(i;0..POLYGON_SIZE){ //remove vertices that are pointed by indices of the polygon
-            uint index = offset + i; //indices point to continious 3 to 4 vertices
-            //memcpy(&vertexBuffer[0] + index, &vertexBuffer[0] + index + VERTEX_SIZE * POLYGON_SIZE, float.sizeof *  VERTEX_SIZE * POLYGON_SIZE);
-            //^^ better not move the whole thing as ALL indices will be invalidated but instead move the last one to the current deleted one
-            //one problem arises: some polygons are of size 3 and some of size 4
+    void removeVertex(uint vertexIndex){
+        for(int i = cast(int)polygons[vertexIndex].length - 1;i >= 0;--i){
+            removePolygon(vertexIndex, i);
         }
 
-        memcpy(&indexBuffer[0] + offset, &indexBuffer[0] + offset + POLYGON_SIZE, indexBuffer.length - offset);
+        foreach(i;0..VERTEX_SIZE){//should be also unrolled as `VERTEX_SIZE` is const
+            vertexBuffer[vertexIndex * VERTEX_SIZE + i] = vertexBuffer[vertexBuffer.length - VERTEX_SIZE + i];
+        }
+        changeLength(vertexBuffer, VERTEX_SIZE);
 
-        polygons[nodeIndex].popFront();
+        polygons[vertexIndex] = polygons[polygons.length - 1];
+        changeLength(polygons, -1);
 
-        foreach(ref list; polygons){
-            foreach(ref item; list){
-                if(item.i >= offset){//actually offset + POLYGON_SIZE but it is the same as no polygons remain that refer to that range
-                    item.i -= POLYGON_SIZE;
+        ptr[ptr.length - 1].index =  vertexIndex;
+        ptr[vertexIndex] = ptr[ptr.length - 1];
+        changeLength(ptr, -1);
+
+        foreach(poly;polygons[vertexIndex]){
+            foreach(i;0..3){
+                auto indexIntoVertexBuffer = indexBuffer[3 * poly + i];
+                if(indexIntoVertexBuffer == vertexBuffer.length){
+                    indexBuffer[3 * poly + i] = vertexIndex;
                 }
             }
         }
@@ -626,69 +628,15 @@ struct VoxelRenderData(T){ //this structure is used for storing topology/geometr
     }
 
 
-    private void removeFrontPolygon(uint nodeIndex){
-        uint ps = polygons[nodeIndex].front.i; //dont forget to pop it
-        bool isQuad = polygons[nodeIndex].front.isQuad;
 
-       if(isQuad){
-           removeFrontPolygon!(4)(ps, indexBufferQuads);
-       }else{
-           removeFrontPolygon!(3)(ps, indexBufferTriangles);
-       }
-
-       polygons[nodeIndex].popFront();
-    }
-
-    private void removeVertex1(uint vertexIndex){
-        if(polygons[vertexIndex].empty) return;
-
-        removeFrontPolygon(vertexIndex);
-
-        removeVertex1(vertexIndex);
-    }
-
-    private void removeVertex(uint vertexIndex){
-        removeVertex1(vertexIndex);
-
-        memcpy();
-    }
-
-    private void removeNodeData(HeterogeneousNode!T* node){
-
-        SList!uint* ps = &polygons[node.index];
-
-        foreach(i;node.indices){//index into vertex buffer
-
-        }
-
-        foreach(p; *ps){
-            uint[POLYGON_SIZE] polygonIndices;
-            foreach(i;0..POLYGON_SIZE){
-                polygonIndices[i] = indexBuffer[p * POLYGON_SIZE + i];
-            }
-        }
-    }
-
-    RenderVertFragDef makeColorNormalRenderer(){
-        auto renderer = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
-
-        //writeln("makeColorNormalRenderer1");
-        //stdout.flush();
-
+    void updateColorNormalRenderer(RenderVertFragDef renderer){
+        
         renderer.vertexPool = vertexBuffer;
-        renderer.indexPool.reserve(indexBufferTriangles.length + indexBufferQuads.length);
-        renderer.indexPool.length = indexBufferTriangles.length + indexBufferQuads.length;
-
-        if(indexBufferTriangles.length > 0)//is can be zero when the grid is not simplified
-            memcpy(&renderer.indexPool[0], &indexBufferTriangles[0], uint.sizeof * indexBufferTriangles.length);
-       
-        if(indexBufferQuads.length > 0)
-            memcpy(&renderer.indexPool[0] + indexBufferTriangles.length, &indexBufferQuads[0], uint.sizeof * indexBufferQuads.length);
+        renderer.indexPool = indexBuffer;
 
         renderer.vertexCount = cast(uint)vertexBuffer.length / VERTEX_SIZE;
-
-        return renderer;
     }
+
 }
 
 ubyte nodeType(T)(Node!(T)* node){

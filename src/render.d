@@ -109,8 +109,8 @@ class RenderVertFragDef : RenderVertFrag{
 
 }
 
-enum VERTEX_SIZE_POS_COLOR = 6;
-enum VERTEX_SIZE_POS_COLOR_NORMAL = 9;
+const enum VERTEX_SIZE_POS_COLOR = 6;
+const enum VERTEX_SIZE_POS_COLOR_NORMAL = 9;
 
 void setAttribPtrsColor(){
     glVertexAttribPointer(0,3, GL_FLOAT, false, VERTEX_SIZE_POS_COLOR * 4, 0);
