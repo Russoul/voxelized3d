@@ -269,7 +269,7 @@ void runVoxelized(){
     auto rendererTrianglesLight = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
     auto rendererScreenGuiTextureColor = new RenderVertFragDef("texture_color", GL_TRIANGLES, () => setAttribPtrsTextureColor());
 
-    auto rendererTrianglesColorDb = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor()); 
+    auto rendererLinesDebugOneDraw = new RenderVertFragDef("color", GL_LINES, () => setAttribPtrsColor()); 
 
 
 	auto red = Vector3!(float)([1.0F, 0.0F, 0.0F]);
@@ -545,7 +545,7 @@ void runVoxelized(){
     auto renderInfoVoxels = RenderInfo(voxelRendererColorNormal, provider);
     auto renderInfoScreenGui = RenderInfo(rendererScreenGuiTextureColor, providerScreenGui);
 
-    auto renderInfoTringlesColorDb = RenderInfo(rendererTrianglesColorDb, providerScreenGui);
+    auto renderInfoLinesDebugOneDraw = RenderInfo(rendererLinesDebugOneDraw, providerLines);
 
 	auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines);
 	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor);
@@ -598,7 +598,7 @@ void runVoxelized(){
 		glfwPollEvents();
 
 		processInput(win, camera, frameDeltaNs); //TODO dt(StopWatch) + input processing
-        update(winInfo, camera, bounds, astorage, frameDeltaNs, renderInfoScreenGui, renderInfoTringlesColorDb, voxelRenderer);
+        update(winInfo, camera, bounds, astorage, frameDeltaNs, renderInfoScreenGui, renderInfoLinesDebugOneDraw, voxelRenderer);
 
 		checkForGlErrors();
 	}
@@ -657,8 +657,12 @@ Tuple!(HeterogeneousNode!T*,Cube!T) rayTraceFirstHetero(T)(Node!T* tree, Cube!T 
     }
 }
 
+
+Cube!float lastCube;
+Vector3!float lastInter;
+
 void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ulong frameDeltaNs,
-  ref RenderInfo renderInfoScreenGui, ref RenderInfo renderInfoTringlesColorDb, VoxelRenderer vr){
+  ref RenderInfo renderInfoScreenGui, ref RenderInfo renderInfoLinesDebugOneDraw, VoxelRenderer vr){
 
     // === update crosshair ====
 
@@ -671,39 +675,48 @@ void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref Ada
     Vector2!float[4] texCoords = [vec2!float(0,0), vec2!float(1,0), vec2!float(1,1), vec2!float(0,1)];
 
     (cast(RenderVertFragDef) renderInfoScreenGui.renderer).reset(); //clear the pools
+    (cast(RenderVertFragDef) renderInfoLinesDebugOneDraw.renderer).reset(); //clear the pools
 
     addRectangleTexColor( cast(RenderVertFragDef) renderInfoScreenGui.renderer, vertices, texCoords, vec3!float(0.8, 0.8, 0.8));
-
-
-
-    //vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoTringlesColor);
     vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoScreenGui);
+
+    addCubeBounds(cast(RenderVertFragDef) renderInfoLinesDebugOneDraw.renderer, lastCube, vec3!float(0, 0, 0));
+    vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoLinesDebugOneDraw);
+
+    addCubeBounds(cast(RenderVertFragDef) renderInfoLinesDebugOneDraw.renderer, Cube!float(lastInter, 0.1), vec3!float(1, 1, 1));
+    vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoLinesDebugOneDraw);
 
     // =========================  
 
     if(glfwGetKey(win.handle, GLFW_KEY_R) == GLFW_PRESS){
         float rayLen = 32.0F;
 
-        auto ray = Line!(float, 3)(cam.pos + cam.look * rayLen);
+        auto ray = Line!(float, 3)(cam.pos, cam.pos + cam.look * rayLen);
 
         auto tree = chunk.root;
 
         float t;
         auto traced = rayTraceFirstHetero(tree, bounds, ray, t);
 
-        writeln(t);
+        if(traced[0] != null){
+            lastCube = traced[1].scale(0.8);
+            lastInter = ray.start + cam.look * rayLen * t;
+            writeln("found intersection");
+        }else{
+            writeln("intersection not found");
+        }
     }
 
     if(glfwGetKey(win.handle, GLFW_KEY_F) == GLFW_PRESS){
         float rayLen = 32.0F;
 
-        auto ray = Line!(float, 3)(cam.pos + cam.look * rayLen);
+        auto ray = Line!(float, 3)(cam.pos, cam.pos + cam.look * rayLen);
 
         Cube!float cube = Cube!float(vec3!float(0,0,0), 0.5F);
 
         float t;
         auto traced = checkLine3CubeIntersection(ray, cube, t);
 
-        writeln(t);
+        writeln(to!string(t) ~ to!string(traced));
     }
 }

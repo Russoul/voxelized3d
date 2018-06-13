@@ -62,6 +62,12 @@ struct OBB(T){
     Vector3!T extent; // {right,up,look}
 }
 
+
+Cube!T scale(T)(Cube!T original, T k){
+    return Cube!T(original.center, original.extent * k);
+}
+
+//tested
 bool checkLinePlaneIntersection(T)(ref Line!(T, 3) line, Plane!T plane, ref T ret){
     auto t = (plane.point - line.start).dot(plane.normal) / (line.end - line.start).dot(plane.normal);
     if(0 < t && t < 1.0){
@@ -72,6 +78,7 @@ bool checkLinePlaneIntersection(T)(ref Line!(T, 3) line, Plane!T plane, ref T re
     }
 }
 
+//tested
 bool checkLine3Rectangle3Intersection(T)(ref Line!(T,3) line, ref Rectangle3!(T) rec, ref T t){
     if(checkLinePlaneIntersection!T(line, Plane!T(rec.center, rec.basis[0].cross(rec.basis[1])), t)){
         auto ret = line.start + (line.end - line.start) * t;
@@ -88,6 +95,7 @@ bool checkLine3Rectangle3Intersection(T)(ref Line!(T,3) line, ref Rectangle3!(T)
     }
 }
 
+//tested
 void genCubeRectangleFaces(T)(ref Cube!(T) cube, ref Rectangle3!(T)[6] faces){
     auto ext = vec2!T(cube.extent, cube.extent);
 
@@ -104,11 +112,14 @@ void genCubeRectangleFaces(T)(ref Cube!(T) cube, ref Rectangle3!(T)[6] faces){
 
 }
 
-bool checkLine3CubeIntersection(T)(ref Line!(T,3) line, ref Cube!(T) cube, ref T ret){
+//tested
+bool checkLine3CubeIntersection(T)(ref Line!(T,3) line, ref Cube!(T) cube){
 
     Rectangle3!T[6] faces;
 
     genCubeRectangleFaces(cube, faces);
+
+    T ret;
 
     foreach(i;0..6){
         auto inter = checkLine3Rectangle3Intersection(line, faces[i], ret);
@@ -119,6 +130,32 @@ bool checkLine3CubeIntersection(T)(ref Line!(T,3) line, ref Cube!(T) cube, ref T
     }
 
     return false;
+}
+
+//tested
+//return the first intersection
+bool checkLine3CubeIntersection(T)(ref Line!(T,3) line, ref Cube!(T) cube, ref T ret){
+
+    Rectangle3!T[6] faces;
+
+    genCubeRectangleFaces(cube, faces);
+
+    T smallest = 2;//placeholder value (any value that is bigger that `1` will do, as t can only be within closed interval [0,1])
+
+    foreach(i;0..6){
+        T cur;
+        auto inter = checkLine3Rectangle3Intersection(line, faces[i], ret);
+
+        if(inter){
+            if(ret < smallest){
+                smallest = ret;
+            }
+        }
+    }
+
+    ret = smallest;
+
+    return smallest <= 1;
 }
 
 Vector3!T cubeMin(T)(Cube!T cube){
