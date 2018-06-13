@@ -598,7 +598,7 @@ void runVoxelized(){
 		glfwPollEvents();
 
 		processInput(win, camera, frameDeltaNs); //TODO dt(StopWatch) + input processing
-        update(winInfo, camera, bounds, astorage, frameDeltaNs, renderInfoScreenGui, renderInfoLinesDebugOneDraw, voxelRenderer);
+        update(winInfo, camera, bounds, astorage, voxelRenderData,voxelRendererColorNormal, frameDeltaNs, renderInfoScreenGui, renderInfoLinesDebugOneDraw, voxelRenderer);
 
 		checkForGlErrors();
 	}
@@ -660,7 +660,7 @@ Tuple!(HeterogeneousNode!T*,Cube!T) rayTraceFirstHetero(T)(Node!T* tree, Cube!T 
 
 Cube!float lastCube;
 
-void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ulong frameDeltaNs,
+void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ref VoxelRenderData!float vrd, ref RenderVertFragDef chunkRenderer, ulong frameDeltaNs,
   ref RenderInfo renderInfoScreenGui, ref RenderInfo renderInfoLinesDebugOneDraw, VoxelRenderer vr){
 
     // === update crosshair ====
@@ -697,8 +697,13 @@ void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref Ada
 
         if(traced[0] != null){
             lastCube = traced[1].scale(0.8);
-            lastInter = ray.start + cam.look * rayLen * t;
             writeln("found intersection");
+
+            vrd.removeVertex(traced[0].index);
+            vrd.updateColorNormalRenderer(chunkRenderer);
+            chunkRenderer.deconstruct();
+            chunkRenderer.construct();
+
         }else{
             writeln("intersection not found");
         }
