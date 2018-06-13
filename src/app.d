@@ -659,7 +659,6 @@ Tuple!(HeterogeneousNode!T*,Cube!T) rayTraceFirstHetero(T)(Node!T* tree, Cube!T 
 
 
 Cube!float lastCube;
-Vector3!float lastInter;
 
 void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ulong frameDeltaNs,
   ref RenderInfo renderInfoScreenGui, ref RenderInfo renderInfoLinesDebugOneDraw, VoxelRenderer vr){
@@ -683,8 +682,6 @@ void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref Ada
     addCubeBounds(cast(RenderVertFragDef) renderInfoLinesDebugOneDraw.renderer, lastCube, vec3!float(0, 0, 0));
     vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoLinesDebugOneDraw);
 
-    addCubeBounds(cast(RenderVertFragDef) renderInfoLinesDebugOneDraw.renderer, Cube!float(lastInter, 0.1), vec3!float(1, 1, 1));
-    vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoLinesDebugOneDraw);
 
     // =========================  
 
