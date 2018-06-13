@@ -987,11 +987,14 @@ void edgeProc(T)(ref VoxelRenderData!T renderer, Node!(T)* a, Node!(T)* b, Node!
         Vector3!float color = vecS!([1.0F,1.0F,1.0F]);
         Vector3!float normal;
 
+
         int index = -1;
         int maxDepth = -1;
         bool flip2;
 
         int[4] sc;
+
+
         
 
         foreach(i;0..4){

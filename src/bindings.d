@@ -78,6 +78,9 @@ struct Program{
 alias GLFWglproc = void function();
 alias GLADloadproc = void* function(const char *);
 
+extern (C) void glGenerateMipmap(size_t target);
+extern (C) void glTexParameteri(size_t target, size_t pname, int param);
+extern (C) void glActiveTexture(size_t texture_unit);
 extern (C) void glViewport(size_t x, size_t y, size_t width, size_t height);
 extern (C) int gladLoadGLLoader(GLADloadproc);
 extern (C) void glClearColor(float r, float g, float b, float a);
@@ -96,6 +99,7 @@ extern (C) void glLinkProgram(size_t program);
 extern (C) void glValidateProgram(size_t program);
 extern (C) void glDeleteShader(size_t shader);
 extern (C) void glGenVertexArrays(size_t num, size_t* arrays);
+extern (C) void glDeleteTextures(size_t num, uint* texs);
 extern (C) void glGenBuffers(size_t num, size_t* buffers);
 extern (C) void glGenTextures(size_t num, uint* textures);
 extern (C) void glBindTexture(int target, uint texture);

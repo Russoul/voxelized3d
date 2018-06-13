@@ -10,6 +10,12 @@ import traits;
 import matrix;
 
 
+//in screen space coordinate system x ->
+//                                  y |
+//                                    v
+auto rectangle3VerticesScreenSpace = [vec2!float(-1,-1), vec2!float(1,-1), vec2!float(1,1), vec2!float(-1,1)]; //extents of (right,up)
+auto rectangle3VerticesNDC = [vec2!float(-1,-1), vec2!float(1,-1), vec2!float(1,1), vec2!float(-1,1)];
+
 
 struct Triangle(T, size_t N){
     Vector!(T, N) p1;
@@ -19,8 +25,7 @@ struct Triangle(T, size_t N){
 
 struct Rectangle3(T){
     Vector3!T center;
-    Vector3!T right;
-    Vector3!T up;
+    Vector2!(Vector3!T) basis; //orthonormal, origin at center
     Vector2!T extent;
 }
 
@@ -68,12 +73,12 @@ bool checkLinePlaneIntersection(T)(ref Line!(T, 3) line, Plane!T plane, ref T re
 }
 
 bool checkLine3Rectangle3Intersection(T)(ref Line!(T,3) line, ref Rectangle3!(T) rec, ref T t){
-    if(checkLinePlaneIntersection!T(line, Plane!T(rec.center, rec.right.cross(rec.up)), t)){
+    if(checkLinePlaneIntersection!T(line, Plane!T(rec.center, rec.basis[0].cross(rec.basis[1])), t)){
         auto ret = line.start + (line.end - line.start) * t;
-        auto min = rec.center - rec.right * rec.extent[0] - rec.up * rec.extent[1]; 
-        auto d1 = dot(rec.right * (rec.extent[0] * 2), ret - min);
+        auto min = rec.center - rec.basis[0] * rec.extent[0] - rec.basis[1] * rec.extent[1]; 
+        auto d1 = dot(rec.basis[0] * (rec.extent[0] * 2), ret - min);
         if(0 < d1 && d1 < (2 * rec.extent[0]) * (2 * rec.extent[0]) ){
-            auto d2 = dot(rec.up * (rec.extent[1] * 2), ret - min);
+            auto d2 = dot(rec.basis[1] * (rec.extent[1] * 2), ret - min);
             return 0 < d2 && d2 < (2 * rec.extent[1]) * (2 * rec.extent[1]);
         }else{
             return false;
@@ -90,12 +95,12 @@ void genCubeRectangleFaces(T)(ref Cube!(T) cube, ref Rectangle3!(T)[6] faces){
     auto up    = vec3!T(0,1,0);
     auto look  = vec3!T(0,0,1);
 
-    faces[0] = Rectangle3!(T)(cube.center - right * cube.extent, vec3!T(0,0,1), vec3!T(0,1,0), ext);
-    faces[1] = Rectangle3!(T)(cube.center + right * cube.extent, vec3!T(0,0,-1), vec3!T(0,1,0), ext);
-    faces[2] = Rectangle3!(T)(cube.center - up * cube.extent, vec3!T(1,0,0), vec3!T(0,0,1), ext);
-    faces[3] = Rectangle3!(T)(cube.center + up * cube.extent, vec3!T(1,0,0), vec3!T(0,0,-1), ext);
-    faces[4] = Rectangle3!(T)(cube.center - look * cube.extent, vec3!T(-1,0,0), vec3!T(0,1,0), ext);
-    faces[5] = Rectangle3!(T)(cube.center + look * cube.extent, vec3!T(1,0,0), vec3!T(0,1,0), ext);
+    faces[0] = Rectangle3!(T)(cube.center - right * cube.extent, vec2(vec3!T(0,0,1), vec3!T(0,1,0)), ext);
+    faces[1] = Rectangle3!(T)(cube.center + right * cube.extent, vec2(vec3!T(0,0,-1), vec3!T(0,1,0)), ext);
+    faces[2] = Rectangle3!(T)(cube.center - up * cube.extent, vec2(vec3!T(1,0,0), vec3!T(0,0,1)), ext);
+    faces[3] = Rectangle3!(T)(cube.center + up * cube.extent, vec2(vec3!T(1,0,0), vec3!T(0,0,-1)), ext);
+    faces[4] = Rectangle3!(T)(cube.center - look * cube.extent, vec2(vec3!T(-1,0,0), vec3!T(0,1,0)), ext);
+    faces[5] = Rectangle3!(T)(cube.center + look * cube.extent, vec2(vec3!T(1,0,0), vec3!T(0,1,0)), ext);
 
 }
 
@@ -135,6 +140,16 @@ Matrix4!(float) perspectiveProjection(float fovy, float aspect, float near, floa
         0.0F, 2.0F * near / (top - bottom), (top + bottom) / (top - bottom), 0.0F,
         0.0F, 0.0F, -(far + near) / (far - near), -2.0F * far * near / (far - near),
         0.0F, 0.0F, -1.0F, 0.0F
+    ]);
+}
+
+//need NOT be trasposed for opengl !
+Matrix4!float orthographicProjection(float l, float r, float t, float b, float n, float f){
+    return Matrix4!float([
+        2 / (r - l), 0, 0, -(r + l)/(r - l),
+        0, 2 / (t - b), 0, -(t + b)/(t - b),
+        0, 0, -2 / (f - n), -(f + n)/(f - n),
+        0, 0, 0, 1
     ]);
 }
 

@@ -93,6 +93,8 @@ class VoxelRenderer{
 
         }
 
+        lifetimeOneDrawRenderers.clear();
+
         foreach(renderInfo; lifetimeManualRenderers){
             auto shaderName = renderInfo.renderer.shaderName;
             Program shader = shaders[shaderName];
@@ -124,6 +126,8 @@ class VoxelRenderer{
             shader.disable();
 
         }
+
+        
     }
 
     Option!RenderID push(RenderLifetime life, RenderTransform transform, RenderInfo renderer){
@@ -193,7 +197,7 @@ class VoxelRenderer{
                 return some(rid);
             },
             delegate(None _n){ //shader not found
-                return none!RenderID;
+                return panic!(Option!(RenderID))("shader not found: " ~ renderer.renderer.shaderName);
             }
         );
     }

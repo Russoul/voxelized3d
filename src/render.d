@@ -110,6 +110,7 @@ class RenderVertFragDef : RenderVertFrag{
 }
 
 const enum VERTEX_SIZE_POS_COLOR = 6;
+const enum VERTEX_SIZE_POS_TEXTURE_COLOR = 8;
 const enum VERTEX_SIZE_POS_COLOR_NORMAL = 9;
 
 void setAttribPtrsColor(){
@@ -128,6 +129,19 @@ void setAttribPtrsNormal(){
     glEnableVertexAttribArray(2);
 }
 
+void setAttribPtrsTextureColor(){
+    glVertexAttribPointer(0,3, GL_FLOAT, false, VERTEX_SIZE_POS_TEXTURE_COLOR * 4, 0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1,2,GL_FLOAT, false, VERTEX_SIZE_POS_TEXTURE_COLOR * 4, 3 * 4);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2,3,GL_FLOAT, false, VERTEX_SIZE_POS_TEXTURE_COLOR * 4, 5 * 4);
+    glEnableVertexAttribArray(2);
+}
+
+private void addFloat2(RenderVertFragDef dat, Vector2!float v){
+    dat.vertexPool.insertBack(v.x);
+    dat.vertexPool.insertBack(v.y);
+}
 
 private void addFloat3(RenderVertFragDef dat, Vector3!float v){
     dat.vertexPool.insertBack(v.x);
@@ -210,6 +224,24 @@ void addTriangleColor(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!fl
     dat.indexPool.insertBack(2 + dat.vertexCount);
 
     dat.vertexCount += 3;
+}
+
+void addRectangleTexColor(RenderVertFragDef dat, Vector3!float[4] rec, Vector2!float[4] tex, Vector3!float color){
+    foreach(i;0..4){
+        addFloat3(dat, rec[i]);
+        addFloat2(dat, tex[i]);
+        addFloat3(dat, color);
+    }
+
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(dat.vertexCount + 1);
+    dat.indexPool.insertBack(dat.vertexCount + 2);
+
+    dat.indexPool.insertBack(dat.vertexCount);
+    dat.indexPool.insertBack(dat.vertexCount + 2);
+    dat.indexPool.insertBack(dat.vertexCount + 3);
+
+    dat.vertexCount += 4;
 }
 
 void addTriangleColorNormal(RenderVertFragDef dat, Triangle!(float, 3) tri, Vector3!float color, Vector3!float normal){

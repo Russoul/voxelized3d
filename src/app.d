@@ -267,6 +267,9 @@ void runVoxelized(){
 	auto rendererLines = new RenderVertFragDef("color", GL_LINES, () => setAttribPtrsColor());
 	auto rendererTrianglesColor = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor());
     auto rendererTrianglesLight = new RenderVertFragDef("lighting", GL_TRIANGLES, () => setAttribPtrsNormal());
+    auto rendererScreenGuiTextureColor = new RenderVertFragDef("texture_color", GL_TRIANGLES, () => setAttribPtrsTextureColor());
+
+    auto rendererTrianglesColorDb = new RenderVertFragDef("color", GL_TRIANGLES, () => setAttribPtrsColor()); 
 
 
 	auto red = Vector3!(float)([1.0F, 0.0F, 0.0F]);
@@ -440,10 +443,16 @@ void runVoxelized(){
 
     int imgWidth, imgHeight, imgCh;
     ubyte* dotImg = stbi_load("assets/textures/gui/dot.png", &imgWidth, &imgHeight, &imgCh, 0);
+    writeln("loaded dot.png, width = " ~ to!string(imgWidth) ~ ", height = " ~ to!string(imgHeight) ~ ", channels = " ~ to!string(imgCh));
     uint dotTex;
     glGenTextures(1, &dotTex);
     glBindTexture(GL_TEXTURE_2D, dotTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgWidth, imgHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, cast(void*) dotImg);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imgWidth, imgHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, cast(void*) dotImg);
+    glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(dotImg);
 
     // =====================================
@@ -497,6 +506,29 @@ void runVoxelized(){
     		return true;
     	};
 
+    auto shaderScreenGui =
+    	delegate(Program shader, const ref WindowInfo win, const ref Camera camera){
+
+            glBindTexture(GL_TEXTURE_2D, dotTex);
+            glUniform1i(glGetUniformLocation(shader.id, "textureID"), 0);
+
+    		auto aspect = cast(float)win.width / win.height;
+
+    		auto idMat = matS!([
+    			[1.0F, 0.0F, 0.0F, 0.0F],
+    			[0.0F, 1.0F, 0.0F, 0.0F],
+    			[0.0F, 0.0F, 1.0F, 0.0F],
+    			[0.0F, 0.0F, 0.0F, 1.0F]
+    		]);
+
+    		auto ortho = orthographicProjection(0, win.width, win.height, 0, -1, 1);
+
+
+    		shader.setFloat4x4("P", false, ortho); //TODO
+    		shader.setFloat4x4("V", true, idMat);
+
+    		return true;
+    	};
 
 	auto providerLines = RenderDataProvider(none!(void delegate()), none!(void delegate()),
 	 some(shaderDataLines));
@@ -504,11 +536,16 @@ void runVoxelized(){
 
     auto provider = RenderDataProvider(none!(void delegate()), none!(void delegate()), some(shaderData));
 
+    auto providerScreenGui = RenderDataProvider(none!(void delegate()), none!(void delegate()), some(shaderScreenGui));
+
 
 	auto renderInfoLines = RenderInfo(rendererLines, providerLines);
 	auto renderInfoTringlesColor = RenderInfo(rendererTrianglesColor, provider);
 	auto renderInfoTrianglesLight = RenderInfo(rendererTrianglesLight, provider);
     auto renderInfoVoxels = RenderInfo(voxelRendererColorNormal, provider);
+    auto renderInfoScreenGui = RenderInfo(rendererScreenGuiTextureColor, providerScreenGui);
+
+    auto renderInfoTringlesColorDb = RenderInfo(rendererTrianglesColorDb, providerScreenGui);
 
 	auto idLines = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoLines);
 	auto idTriColor = voxelRenderer.push(RenderLifetime(Manual()), RenderTransform(None()), renderInfoTringlesColor);
@@ -519,7 +556,6 @@ void runVoxelized(){
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.construct();
     voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.construct();
     voxelRenderer.lifetimeManualRenderers[idVoxels.getValue].renderer.construct();
-
 
 
 
@@ -562,7 +598,7 @@ void runVoxelized(){
 		glfwPollEvents();
 
 		processInput(win, camera, frameDeltaNs); //TODO dt(StopWatch) + input processing
-        update(win, camera, bounds, astorage, frameDeltaNs);
+        update(winInfo, camera, bounds, astorage, frameDeltaNs, renderInfoScreenGui, renderInfoTringlesColorDb, voxelRenderer);
 
 		checkForGlErrors();
 	}
@@ -572,6 +608,8 @@ void runVoxelized(){
 	voxelRenderer.lifetimeManualRenderers[idTriColor.getValue].renderer.deconstruct();
     voxelRenderer.lifetimeManualRenderers[idTriLight.getValue].renderer.deconstruct();
     voxelRenderer.lifetimeManualRenderers[idVoxels.getValue].renderer.deconstruct();
+
+    glDeleteTextures(1, &dotTex);
 
 	glfwTerminate();
 
@@ -619,8 +657,31 @@ Tuple!(HeterogeneousNode!T*,Cube!T) rayTraceFirstHetero(T)(Node!T* tree, Cube!T 
     }
 }
 
-void update(GlfwWindow* win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ulong frameDeltaNs){
-    if(glfwGetKey(win, GLFW_KEY_R) == GLFW_PRESS){
+void update(const ref WindowInfo win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxelStorage!float chunk, ulong frameDeltaNs,
+  ref RenderInfo renderInfoScreenGui, ref RenderInfo renderInfoTringlesColorDb, VoxelRenderer vr){
+
+    // === update crosshair ====
+
+    auto crosshairWidth = win.height / 128;
+    auto crosshairCenter = vec3!float(win.width/2, win.height/2, 0);
+    Vector3!float[4] vertices;
+    foreach(i;0..4){
+        vertices[i] = crosshairCenter + vec3!float(crosshairWidth,0,0) * rectangle3VerticesNDC[i].x + vec3!float(0,crosshairWidth,0) * rectangle3VerticesNDC[i].y; 
+    }
+    Vector2!float[4] texCoords = [vec2!float(0,0), vec2!float(1,0), vec2!float(1,1), vec2!float(0,1)];
+
+    (cast(RenderVertFragDef) renderInfoScreenGui.renderer).reset(); //clear the pools
+
+    addRectangleTexColor( cast(RenderVertFragDef) renderInfoScreenGui.renderer, vertices, texCoords, vec3!float(0.8, 0.8, 0.8));
+
+
+
+    //vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoTringlesColor);
+    vr.push(RenderLifetime(OneDraw()), RenderTransform(None()), renderInfoScreenGui);
+
+    // =========================  
+
+    if(glfwGetKey(win.handle, GLFW_KEY_R) == GLFW_PRESS){
         float rayLen = 32.0F;
 
         auto ray = Line!(float, 3)(cam.pos + cam.look * rayLen);
@@ -633,7 +694,7 @@ void update(GlfwWindow* win, ref Camera cam, Cube!float bounds, ref AdaptiveVoxe
         writeln(t);
     }
 
-    if(glfwGetKey(win, GLFW_KEY_F) == GLFW_PRESS){
+    if(glfwGetKey(win.handle, GLFW_KEY_F) == GLFW_PRESS){
         float rayLen = 32.0F;
 
         auto ray = Line!(float, 3)(cam.pos + cam.look * rayLen);
